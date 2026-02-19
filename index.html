@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>YIC Vehicle Booking</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.22.5/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --black:#0A0A0A;--black2:#141414;--black3:#1C1C1C;--black4:#242424;
+  --border:#2A2A2A;--border2:#333;
+  --lime:#8DC63F;--lime-dark:#6FA32E;--lime-light:#A8D95A;
+  --lime-bg:rgba(141,198,63,0.08);--lime-bg2:rgba(141,198,63,0.15);
+  --text:#F5F5F5;--text2:#AAAAAA;--text3:#666;
+  --pending:#F59E0B;--pending-bg:rgba(245,158,11,0.12);
+  --approved:#8DC63F;--approved-bg:rgba(141,198,63,0.12);
+  --rejected:#EF4444;--rejected-bg:rgba(239,68,68,0.12);
+  --blue:#60A5FA;--blue-bg:rgba(96,165,250,0.12);
+}
+body{font-family:'Inter',sans-serif;background:var(--black);color:var(--text);min-height:100vh;font-size:clamp(12px,1vw,15px)}
+.main-wrap{max-width:1400px;margin:0 auto;padding:clamp(0.75rem,1.5vw,1.5rem)}
+@media(max-width:960px){
+  .main-grid{grid-template-columns:1fr!important}
+  .booking-status-col{max-height:500px;overflow-y:auto}
+}
+@media(max-width:640px){
+  .header-nav button span{display:none}
+  .vehicle-scroll{flex-wrap:wrap}
+}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--lime);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.fade-in{animation:fadeIn .25s ease}
+input,select,textarea{font-family:'Inter',sans-serif;background:var(--black3);border:1.5px solid var(--border2);color:var(--text);border-radius:8px;transition:all .2s;font-size:13px;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 3px rgba(141,198,63,0.15)}
+input::placeholder{color:var(--text3)}
+select option{background:var(--black3);color:var(--text)}
+button{font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.btn-lime{background:var(--lime);color:var(--black);border:none;font-weight:700;border-radius:8px}
+.btn-lime:hover{background:var(--lime-light);transform:translateY(-1px)}
+.btn-lime:disabled{background:var(--border2);color:var(--text3);transform:none;cursor:not-allowed}
+.card{background:var(--black2);border:1px solid var(--border);border-radius:12px}
+.tag{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.tag-pending{background:var(--pending-bg);color:var(--pending);border:1px solid rgba(245,158,11,0.2)}
+.tag-approved{background:var(--approved-bg);color:var(--approved);border:1px solid rgba(141,198,63,0.2)}
+.tag-rejected{background:var(--rejected-bg);color:var(--rejected);border:1px solid rgba(239,68,68,0.2)}
+.tag-arranged{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(96,165,250,0.2)}
+.cal-day{border-radius:8px;height:110px;padding:6px;cursor:pointer;border:1px solid transparent;transition:all .15s;overflow-y:auto;overflow-x:hidden}
+.cal-day:hover{border-color:var(--lime)!important;background:var(--lime-bg)!important}
+.booking-chip{font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;cursor:pointer;transition:all .15s}
+.booking-chip:hover{opacity:.8;transform:scale(1.02)}
+.toggle-btn{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:6px;border:1px solid;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
+.toggle-on{background:var(--lime-bg2);border-color:rgba(141,198,63,0.3);color:var(--lime)}
+.toggle-off{background:var(--rejected-bg);border-color:rgba(239,68,68,0.3);color:var(--rejected)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-box{background:var(--black2);border:1px solid var(--border);border-radius:16px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 25px 80px rgba(0,0,0,0.7)}
+</style>
+<style>
+body.light-mode {
+  --black:#FFFFFF;
+  --black2:#F8F8F8;
+  --black3:#F0F0F0;
+  --black4:#E8E8E8;
+  --border:#E0E0E0;
+  --border2:#D0D0D0;
+  --lime:#7AB82D;
+  --lime-bg:rgba(122,184,45,0.1);
+  --lime-bg2:rgba(122,184,45,0.18);
+  --text:#0A0A0A;
+  --text2:#404040;
+  --text3:#707070;
+}
+</style>
+</head>
+<body>
+<div id="root"><div style="display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;gap:12px"><div class="spinner"></div><p style="color:#666;font-size:13px">Loading YIC Booking...</p></div></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const API_URL='https://script.google.com/macros/s/AKfycbydbTEDVj1Iw05X0YpivHwXsy3LSuZsHnyHywilAxDrhMY1c8lI0-saVh-GuCCDHJes/exec';
+const LOGO='data:image/png;base64,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';
+const DRIVER_IMAGES={'Mr. Chinh':'data:image/jpeg;base64,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','Mr. Hau':'data:image/jpeg;base64,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','Mr. Phuong':'data:image/jpeg;base64,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','Mr. Son':'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCABeAEQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDxf4UfsZ3V6FvfGVx9mtmUMunWpxMT33vjC/QZ/CvrDwd4D0bwZp0VlommwabaoMlYhy5x1ZjyT7nmtuxtxs+6AtacNqdrADtXgXuexOq5vU8/u9Okl167MRKbl2MVOP4u+Oe34Vs6Z4chVgWQybsH5u2Dn+fP15qxp2mtLr185UlHRcH3DuD/AErrI9IjkgCygBDgbTwGJ6CtEm0cnNYwDDHDIdkbzMMBjEu7bk4yT2AP5elLeJcQLK0rtpsQTAcL5j5zjIQZLYyOgwfUV1ttbNLZZtYDIrpujdsrHyOucZ+uOearjwmkd4M3U8Xm7JJYbcfOWBHJl4Yr8u05OSOOK0URcxy05t7aC2cSxiVfkjubv53GFYvhM4zi3zuJJGO1VL22gtgri1lvNXktzMJ5JgkgdEikKxjPTALEMT93rziuug0i3uVtrNrX+0E2xoJ5iJGWN4pMSbsBEYksNyAk7hxzU2j6Pb6bBaQ3USWbYhWZmRXKiWIQ7TMxAYggDcoHbINaWIvrcxH8LXWtSzPHqMsZhmlR1VmUZLs47/3XWin674d1xtQa58O6JpusWtyoae41C7lilEyfumBHGeI1OQFB3dO5K0sw5mWbaxCwAgHBrfstKAVSeM1ctNJ/cKCucYNb1ppyhQzkRxqMlm4AA61zciRbkefaFpTS6pqSbiqqU528jcZORWpqPirwh4SMba3r+naf5jEq11cKAAMEsPYZB46ZrD8X6smhfDXxR4riURSWNkbjZM4XpFvVt3YjzMj1PFfkfovhTxz8XXlurdZZ7SSQsJr2UiMsSSdoP1PSuiMYxXNN2RjGM6j5YK7P1q8OftC+AfF4caT4p0lViuWgcXN0sZOxd0pUsQGUZGGXOST6V2lpbtftaTJK10GKFpA2IyrRFg6H+IHI6Ada/HTVv2c/G+k2HntZ2l2VUnyopPmAr6A/YC/aG8W6L8UrX4a6xfznRdVnLSC9G+e1kReUDMcqrAY9uMdaqPs6ivTlcdSnVo2VSLR+iGgaLfQ2tvNfwmGKOKyk3xgqxeMtvQIeQPu9f7x7iuJ1G3Nhd/Y555od8txod7cX/GGZzPaSlweE3HaB1OO3Suk1rTb5GsdM1bUZp7a8W70q/u5wIdokO+F0IwAQCq7hz071gaXYx2kZu9b00fa/LXw/r0kYkLKYiPs93GpyXxlctjsTWiijK7NfRdM1/XoJtU8P6kmiLdyl77T72IStDdKAjhSSMKQiMB7n1orj/GyeGtP1SC18bReKpdeht1SS80JJPIu0ySsxC5AdgfmHqPpRVBdnucOnKiJkelfPn7XPxRvvAui2Wm6WlzLd3OZGitmZFkiGd29hgAAheD1yfSvp2W0ZjtAAAFcv4v8ABtrrunzx3YBiYeXtYjDZ+pHP0PbpWMqfMmioy5WpM+Ydbn1jxd+xfq41hfsEmq2SpKqqV8qFUjRUyVOSduMkg4Ocnv5J8F/F3gS9WDR9OvoTcwrtS3mgeMDHHBK4NfW3xn0ww/BDxRahAyPcxwADGNmYhjj8vwr5CfwD4n8Mana3lxqFp/ZbMvl2SWqI249B5nUjGPevOxkYNKE+iPoMoc0nVgt2d18S/Hvg/wAFWgtdUu44p5hwscTyOT/wFeK5f4H/AA5sPFf7RvgjxPo139njmgumluYo1JlURgrkODg9s9R7Hmp/EXg/xB4017bp19aWCoAZYpLcSkjoR8wyPYmu7+AOmyeDPit4ftrqFp3Uzxv9mUYUtHkyFeePlPAwckYzXJhOSE4Sj1PSzKNSpSmpbLY+u28J6bcrffarJLv+0Qv2pJeUlZRwxXoD7irkNnHYovlxIrhdiKvOFA4GfSlTVY7yzaW0huZFVwuzyGidjgHhZQmRyORx754qC7u9UksrSew0VXln/wBbbX94sEkA9yiyhj7A496+iPibdjVQkrnhfbNFYuoprv2pvsM+kpbYGBdQyu+cc8rIBjOe1FOwa9jd1rxBo2gRRy6tqllpayOVja8nWIOfQbiM/hWe+r2ur2kdxp13De2MiO/2i2lEkbEcAZBIPf8ASvyM8TfHPWfjP8WF17X7hWEjvFaQIQYIAT8qoGBZeDjKkcnJHOK9u+HPjzVfBmsavpWm3jwC609ZzGJGCrIpOGABGeMA+1LZ2A9++J3xB0/VfCfxH8NfbvJ1ayuvtcMdwQonRDGSkZJ5bjO3r7V87eNPiDb6vb6bDc6pNpRTEoe0CmVwOoXIOPriuu8I/tMeOdU8ONHq0mhaosytE/maVtMikYJY+aQTg9cCvINStoNGu1hu5S9qT50RUfMi5wR7Y6CvPxlJu1Q9XI8bGnzYeT1budt4U8bWdrrr3FprN5eXNw+Nl6qqQMDhSFUkexzXsv7P8V9qfxaOpW8Mc8FlAxucyKm1ZDgEZ78Zx7V892WuaNcP/wAS4SSzsAOFDNn644r3b4a/Ds638Mrm/uvOU3920cSbv9HdYvvJIM/MepAx1wO9efhaftK6ceh9BmmIcMNJR6n1GL7XxfGRpdBGnLJsPzyibZ9Mbc/pXNav8QtN0a9k+2fE/wAP2ESSfNaXMcCsBn7hPnde2cV8zal4L0zwwwuotAs7UtgC5SADJx0LAfe68ex9K5nVriKbcxijJPqoNfRH5vKoo6SR9XXHjjwjdStNF8UbiJJDuCQanalF9h+6b+dFfGLzKzEhEUegAop2Mvbw/l/E+XfDNtYL8ULGz0uf7bpMWoeXDOY9rTxBjhip+6SOcHvXsvibVFf4sLc2rYd7W5jVUwFWMKqrx2zg5968z+CXhsyaqdYnB2Ww+RiMgk9Tn6V6N8JPB93438Y61exK3m326ytXUf3iV3A/j19qXU9Z36HrXwQ+B/iDxl4XtL+WWDSNMnHmQz3Zy06bsEoo5PQ4PQ4NdP8AtHeCLHwxceAYtNt5kgfSXIa7QeZIBKcM/wDvZJx6V9H2/wAPrnwd4e0VLC12QaIIzDb+eFlkjTaMp3CMCc579OtY3xxgj8e+GLu/vY44bywQXNqfLC5TqYwemAoPA9q1xNNui1E1wEYU68ZSPl/w2bbyDiKI3U3yRrGgGGJwAMfWvvPwB4Ah8PeAdM0+ayi0+CzKyKhIJluWIDTE9CDkEfSvif4Q+D5/FvjH7Tb2s76LauHNyiEpvIJXpyRwScA9K+nRoPi/RLb7NF4lu72ys0GbfWBvaFVIO4t16pgDJBBrgy+jKKdSW7PazWqueNGOyK+i2tjqnhq0j1ZLOa7v5JPOgZCyht/yscdMKpI789ecHzvXvgDNq0moNo1nd2VpAdqXV+BHE79woJyFxjBJyTxivUfCF/f+GbC3vY9GE8k0hs4fM5ZWBfacHvtEQJ9wB0rsJdVbSpjaW0L3xRGluJIwH3MXwC6nkcnrjgA8cV61kfOzpxqfEj4O8U+E9T8Jau9hqEGyYKHV4vnSRD0ZWHUcEfgaK+z7rxvo+llYDdW1kQGzCbJPlYMwb7yk9QR+FFZ8hy/VIH5heFo/E3j+0tvD3hfRbu81a7gX7TNbQJFBCTwzbt2FX3+nAr6S/ZY+FHivwD4sn0rxjaWNktjZmWH7PdJcMCxKgyKh9e3IIzxXnX7D3xUXTvFx0DUkmmsbq2nW3MCDfFIQC3O5SFIXnGeQMV9kfDLXtK1bStW8SWcVwkV6Ps8rToDNsEnlAD5yByc5JPr1rmwzc5I9GceV2PRNZaHUtMtYo1iliZVMt0A+FCYVt0pySCFAI2kDoSeDWZ4gig1BBHJCjyRZSC3nuGdA5XaeWxuXaT8oGDgnINXru8eKznuZGncqViYrOQ8b42hkOMYbjIwAMkjPfB8OXCa1cXEiRFVs8whS+0+aDzhgCTxxvJzz93tXqLRWMdnoM8CXGmeGLsaVp+kW+n2loosrWS1UpJGwLfumYdd77l98nPU1a8eXjC0sPDsAktpL64iN6oYF7cuUZIgeu3hhjsM1UCi/sYbaK6uYJVht9RQDG1WZiUO77xOVIIJPGMHsKfirV4dD+Ivh6C2iea7Fs93KZ2ykjYAUk9SRubHHGalpJaC6l7Wmlm/smbULRYGe+F3Bau5JXzZguOOmFxyeBkntWpaavqcWv619khM0wixKl2Ry4XIVXGC6hv4j1z7YrA+MV5JHBBBHeTfNeWccO6NdsIYqoA2kFhmQHk8HPB4rgrz4nNJ4geO3Wb7XC6QbpMBZHVOFYg58v5ScDnnnNDWhV9T2I+HNS8SMdTKtpJuQshtnUFwSo5bJ4b1AorH0uG88WRSy3N09nLbSNBtspCiMp/eqcDviUA5z06mipsVc/9k=','Mr. Tuan':'data:image/jpeg;base64,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'};
+
+const t={
+  en:{title:"Vehicle Booking",newBooking:"+ New Booking",calendar:"Calendar",management:"Management",vehicles:"Vehicles",autoArrange:"⚡ Auto-Arrange",
+    noBookings:"No bookings",vehicle:"Vehicle",purpose:"Purpose",passengers:"Passengers",
+    startTime:"Departure",endTime:"Return",pending:"Pending",approved:"Approved",rejected:"Rejected",arranged:"Arranged",
+    approve:"Approve",reject:"Reject",delete:"Delete",cancel:"Cancel",submit:"Submit ({count} pax)",
+    all:"All",downloadExcel:"Export Excel",selectVehicle:"Select vehicle",
+    purposePlaceholder:"e.g. Client visit, Factory inspection",searchEmployee:"Search by name or ID",
+    departure:"Departure Point",quickSelect:"Quick Destinations",addStop:"+ Add Stop",
+    employeeId:"Employee ID",password:"Password",loginButton:"Sign In",
+    loginError:"Invalid Employee ID or Password",exit:"Sign Out",
+    selected:"selected",route:"Route",loading:"Loading...",submitting:"Submitting...",
+    bookingStatus:"Booking Status",arrangeResult:"Auto-Arrange Result",
+    reviewApprove:"Review & Approve",addVehicle:"+ Add Vehicle",editVehicle:"Edit Vehicle",
+    vehicleActive:"Vehicle Active",driverAvailable:"Driver Available",
+    company:"Company",rental:"Rental",seats:"Seats",plate:"Number Plate",driver:"Driver",
+    save:"Save",confirmDelete:"Delete this?",pax:"pax",merged:"merged",
+    autoArrangeDesc:"Merging bookings with same route ± 10min, then assigning optimal vehicles.",
+    noArrangeResult:"Run Auto-Arrange to see results.",
+    approveAll:"Approve All Groups",reassign:"Reassign Vehicle"},
+  vi:{title:"Đặt Xe",newBooking:"+ Đặt Xe Mới",calendar:"Lịch",management:"Quản Lý",vehicles:"Xe",autoArrange:"⚡ Sắp Xếp Tự Động",
+    noBookings:"Chưa có đặt xe",vehicle:"Xe",purpose:"Mục Đích",passengers:"Hành Khách",
+    startTime:"Thời Gian Đi",endTime:"Thời Gian Về",pending:"Chờ Duyệt",approved:"Đã Duyệt",rejected:"Từ Chối",arranged:"Đã Sắp Xếp",
+    approve:"Duyệt",reject:"Từ Chối",delete:"Xóa",cancel:"Hủy",submit:"Gửi ({count} người)",
+    all:"Tất Cả",downloadExcel:"Xuất Excel",selectVehicle:"Chọn xe",
+    purposePlaceholder:"VD: Gặp khách hàng",searchEmployee:"Tìm theo tên hoặc mã NV",
+    departure:"Điểm Xuất Phát",quickSelect:"Điểm Đến Nhanh",addStop:"+ Thêm Điểm",
+    employeeId:"Mã Nhân Viên",password:"Mật Khẩu",loginButton:"Đăng Nhập",
+    loginError:"Sai mã NV hoặc mật khẩu",exit:"Đăng Xuất",
+    selected:"đã chọn",route:"Lộ Trình",loading:"Đang tải...",submitting:"Đang gửi...",
+    bookingStatus:"Trạng Thái Đặt Xe",arrangeResult:"Kết Quả Sắp Xếp",
+    reviewApprove:"Xem Xét & Duyệt",addVehicle:"+ Thêm Xe",editVehicle:"Chỉnh Sửa Xe",
+    vehicleActive:"Xe Hoạt Động",driverAvailable:"Tài Xế Có Mặt",
+    company:"Công Ty",rental:"Thuê",seats:"Chỗ Ngồi",plate:"Biển Số",driver:"Tài Xế",
+    save:"Lưu",confirmDelete:"Xóa mục này?",pax:"người",merged:"gộp",
+    autoArrangeDesc:"Gộp các yêu cầu cùng tuyến ±10 phút, sau đó phân xe tối ưu.",
+    noArrangeResult:"Chạy Sắp Xếp Tự Động để xem kết quả.",
+    approveAll:"Duyệt Tất Cả",reassign:"Đổi Xe"}
+};
+
+const DEPARTURES=[{id:'idmc',name:'IDMC Toyota Building'},{id:'vinfast',name:'Vinfast Building'},{id:'other',name:'Other Location'}];
+const DESTS=[{id:'hanam',name:'YIC HANAM Factory'},{id:'vina',name:'YIC VINA Factory'},{id:'huonglien',name:'Huong Lien Subcon'},{id:'hunglong',name:'Hung Long Subcon'},{id:'jmc_bgg',name:'JMC & BGG Subcon'},{id:'jmc_yenthe',name:'JMC & Yen The Subcon'},{id:'quyninh',name:'YIC Quy Ninh'},{id:'other',name:'Other Destination'}];
+
+async function api(action,data={}){
+  const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,...data})});
+  return r.json();
+}
+
+function fmtDate(str){
+  if(!str)return '-';
+  try{
+    const d=new Date(str);
+    if(isNaN(d))return str;
+    const vn=new Date(d.getTime()+7*60*60*1000);
+    const M=vn.getUTCMonth()+1,D=vn.getUTCDate(),h=vn.getUTCHours(),m=String(vn.getUTCMinutes()).padStart(2,'0');
+    const ampm=h>=12?'PM':'AM',h12=h%12===0?12:h%12;
+    return M+'/'+D+' '+h12+':'+m+' '+ampm;
+  }catch{return str;}
+}
+
+// 저장된 날짜 문자열에서 UTC+7 기준 날짜/시간 추출
+function parseVNDate(str){
+  if(!str)return{date:'',time:'08:00'};
+  try{
+    const d=new Date(str);
+    const vn=new Date(d.getTime()+7*60*60*1000);
+    const date=vn.getUTCFullYear()+'-'+String(vn.getUTCMonth()+1).padStart(2,'0')+'-'+String(vn.getUTCDate()).padStart(2,'0');
+    const h=String(vn.getUTCHours()).padStart(2,'0');
+    const m=String(Math.round(vn.getUTCMinutes()/5)*5).padStart(2,'0');
+    return{date,time:h+':'+m};
+  }catch{return{date:'',time:'08:00'};}
+}
+
+// 5분 단위 시간 옵션 생성
+function getTimeOptions(){
+  const opts=[];
+  for(let h=0;h<24;h++){
+    for(let m=0;m<60;m+=5){
+      const hh=String(h).padStart(2,'0');
+      const mm=String(m).padStart(2,'0');
+      const ampm=h>=12?'PM':'AM';
+      const h12=h%12===0?12:h%12;
+      opts.push({value:hh+':'+mm, label:h12+':'+mm+' '+ampm});
+    }
+  }
+  return opts;
+}
+const TIME_OPTIONS=getTimeOptions();
+
+function DateTimePicker({name, label, defaultDate, defaultTime}){
+  const [date,setDate]=React.useState(defaultDate||'');
+  const [time,setTime]=React.useState(defaultTime||'08:30');
+  // defaultDate/defaultTime 바뀌면 state 업데이트 (모달 새로 열릴 때)
+  React.useEffect(()=>{ setDate(defaultDate||''); },[defaultDate]);
+  React.useEffect(()=>{ setTime(defaultTime||'08:30'); },[defaultTime]);
+  // +07:00 명시 → Apps Script가 UTC로 변환하지 않음
+  const combined=date&&time?date+'T'+time:'';
+  return(
+    <div>
+      <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{label}</label>
+      <input type="hidden" name={name} value={combined} required/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+        <input type="date" value={date} onChange={e=>setDate(e.target.value)} required
+          style={{padding:'9px 10px',fontSize:13,width:'100%'}}/>
+        <select value={time} onChange={e=>setTime(e.target.value)}
+          style={{padding:'9px 10px',fontSize:13,width:'100%'}}>
+          {TIME_OPTIONS.map(o=>(
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+// ============ Auto-Arrange 알고리즘 ============
+function getPaxCount(b){
+  if(!b.passengers)return 1;
+  // "Name1, Name2, Name3" 형식으로 저장됨
+  return b.passengers.split(',').filter(p=>p.trim().length>0).length;
+}
+
+// UTC+7 기준 날짜 문자열 반환 YYYY-MM-DD
+function toVNDateStr(dateStr){
+  const d=new Date(dateStr);
+  const vn=new Date(d.getTime()+7*60*60*1000);
+  return vn.getUTCFullYear()+'-'+String(vn.getUTCMonth()+1).padStart(2,'0')+'-'+String(vn.getUTCDate()).padStart(2,'0');
+}
+
+// 머지 가능 조건: 같은 날(UTC+7) + 같은 루트 + 출발시간 10분 이내
+function canMerge(a,b){
+  if(!a.startDate||!b.startDate||!a.destinations||!b.destinations)return false;
+  const sameDate=toVNDateStr(a.startDate)===toVNDateStr(b.startDate);
+  const sameRoute=a.destinations.trim()===b.destinations.trim();
+  const timeDiff=Math.abs(new Date(a.startDate).getTime()-new Date(b.startDate).getTime());
+  return sameDate&&sameRoute&&timeDiff<=10*60*1000;
+}
+
+function assignBestVehicle(pax,vehicles){
+  if(!vehicles||vehicles.length===0)return null;
+  const company=vehicles.filter(v=>!v.isRental);
+  const companyFit=company.filter(v=>v.seats>=pax).sort((a,b)=>a.seats-b.seats);
+  if(companyFit.length>0)return companyFit[0];
+  const anyFit=vehicles.filter(v=>v.seats>=pax).sort((a,b)=>a.seats-b.seats);
+  if(anyFit.length>0)return anyFit[0];
+  return [...vehicles].sort((a,b)=>b.seats-a.seats)[0];
+}
+
+function splitGroupEvenly(group){
+  const total=group.reduce((s,b)=>s+getPaxCount(b),0);
+  const half=Math.ceil(total/2);
+  let sum=0;
+  const g1=[],g2=[];
+  for(const b of group){
+    if(sum<half){g1.push(b);sum+=getPaxCount(b);}
+    else g2.push(b);
+  }
+  return [g1,g2].filter(g=>g.length>0);
+}
+
+function autoArrange(bookings,vehicles){
+  const active=bookings.filter(b=>b.status==='pending');
+  const availVehicles=vehicles.filter(v=>v.isActive&&v.driverActive);
+  // maxSeats: 실제 탑승 가능한 최대 좌석 (캐시 문제 방지 위해 Number()로 강제 변환)
+  const maxSeats=availVehicles.length>0?Math.max(...availVehicles.map(v=>Number(v.seats)||0)):0;
+  // canFit: 이 인원을 태울 수 있는 차량이 실제로 존재하는가?
+  const canFit=(pax)=>availVehicles.some(v=>Number(v.seats)>=pax);
+
+  // Step1: 날짜+루트+10분 이내 후보 그룹 수집
+  const used=new Set();
+  const rawGroups=[];
+  for(let i=0;i<active.length;i++){
+    if(used.has(active[i].id))continue;
+    const base=active[i];
+    const candidates=[base];
+    used.add(base.id);
+    for(let j=i+1;j<active.length;j++){
+      if(used.has(active[j].id))continue;
+      if(canMerge(base,active[j])){candidates.push(active[j]);used.add(active[j].id);}
+    }
+    rawGroups.push(candidates);
+  }
+
+  // Step2: Merge는 실제로 한 차에 다 탈 수 있을 때만!
+  // canFit(totalPax) → 해당 인원을 태울 수 있는 차량이 존재해야 Merge
+  const finalGroups=[];
+  for(const candidates of rawGroups){
+    const totalPax=candidates.reduce((s,b)=>s+getPaxCount(b),0);
+    if(canFit(totalPax)){
+      // 실제 차량에 다 탈 수 있음 → Merge
+      finalGroups.push(candidates);
+    }else{
+      // 못 탐 → 탈 수 있는 조합끼리만 묶기
+      const subUsed=new Set();
+      for(let i=0;i<candidates.length;i++){
+        if(subUsed.has(candidates[i].id))continue;
+        const sub=[candidates[i]];
+        subUsed.add(candidates[i].id);
+        for(let j=i+1;j<candidates.length;j++){
+          if(subUsed.has(candidates[j].id))continue;
+          const tryPax=sub.reduce((s,b)=>s+getPaxCount(b),0)+getPaxCount(candidates[j]);
+          if(canFit(tryPax)){sub.push(candidates[j]);subUsed.add(candidates[j].id);}
+        }
+        finalGroups.push(sub);
+      }
+    }
+  }
+
+  // Step3: 그룹마다 다른 차량/드라이버 배정
+  const usedVehicleIds=new Set();
+  return finalGroups.map(group=>{
+    const totalPax=group.reduce((s,b)=>s+getPaxCount(b),0);
+    const pool=availVehicles.filter(v=>!usedVehicleIds.has(v.id));
+    const assigned=assignBestVehicle(totalPax,pool.length>0?pool:availVehicles);
+    if(assigned)usedVehicleIds.add(assigned.id);
+    return {group,totalPax,assignedVehicle:assigned};
+  });
+}
+
+const App=()=>{
+  const [lang,setLang]=useState('en');
+  const [isLoggedIn,setIsLoggedIn]=useState(false);
+  const [currentUser,setCurrentUser]=useState(null);
+  const [employees,setEmployees]=useState([]);
+  const [vehicles,setVehicles]=useState([]);
+  const [bookings,setBookings]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [showModal,setShowModal]=useState(false);
+  const [selEmps,setSelEmps]=useState([]);
+  const [destinations,setDestinations]=useState(['']);
+  const [searchTerm,setSearchTerm]=useState('');
+  const [view,setView]=useState('calendar');
+   // bookings | arrange | vehicles
+  const [filterStatus,setFilterStatus]=useState('all');
+  const [submitting,setSubmitting]=useState(false);
+  // currentMonth를 UTC+7 기준으로 초기화
+  const [currentMonth,setCurrentMonth]=useState(()=>{
+    const now=new Date();
+    return new Date(now.getTime()+7*60*60*1000);
+  });
+  const [loginLoading,setLoginLoading]=useState(false);
+  const [selectedDate,setSelectedDate]=useState(null);
+  const [selectedDriver,setSelectedDriver]=useState(null);
+  const [excelDateFilter,setExcelDateFilter]=useState('all');
+  const [excelStartDate,setExcelStartDate]=useState('');
+  const [excelEndDate,setExcelEndDate]=useState('');
+  const [bookingSearch,setBookingSearch]=useState('');
+  const [theme,setTheme]=useState(localStorage.getItem('yic-theme')||'dark');
+  const [selectedBooking,setSelectedBooking]=useState(null);
+  const [selectedGroup,setSelectedGroup]=useState(null);
+  const [similarBookings,setSimilarBookings]=useState([]);
+  const [arrangeResult,setArrangeResult]=useState(null);
+  const [arrangeLoading,setArrangeLoading]=useState(false);
+  const [showVehicleModal,setShowVehicleModal]=useState(false);
+  const [editingVehicle,setEditingVehicle]=useState(null);
+  const [editingBooking,setEditingBooking]=useState(null);
+  const [refreshing,setRefreshing]=useState(false);
+  const [globalLoading,setGlobalLoading]=useState(false); // approve/reject/delete 등 빠른 작업용
+  const [adminSubTab,setAdminSubTab]=useState('dashboard'); // dashboard | bookings | arrange | vehicles
+
+  useEffect(()=>{
+    const saved=localStorage.getItem('yic_user');
+    if(saved){const u=JSON.parse(saved);setCurrentUser(u);setIsLoggedIn(true);loadData(true);}
+  },[]);
+
+  useEffect(()=>{
+    document.body.className=theme==='light'?'light-mode':'';
+  },[theme]);
+
+  const toggleTheme=()=>{
+    const newTheme=theme==='dark'?'light':'dark';
+    setTheme(newTheme);
+    localStorage.setItem('yic-theme',newTheme);
+  };
+
+  const loadData=async(showSpinner=false,showRefresh=false)=>{
+    if(showRefresh)setRefreshing(true);
+    // 캐시 먼저 즉시 표시
+    try{
+      const ce=localStorage.getItem('yic_cache_employees');
+      const cv=localStorage.getItem('yic_cache_vehicles');
+      const cb=localStorage.getItem('yic_cache_bookings');
+      if(ce)setEmployees(JSON.parse(ce));
+      // vehicles는 seats 등 중요 설정이라 캐시 안 씀 - 항상 최신값
+      // if(cv)setVehicles(JSON.parse(cv));
+      if(cb)setBookings(JSON.parse(cb));
+      // 캐시 있으면 스피너 불필요
+      if(ce&&cv&&cb)showSpinner=false;
+    }catch(err){}
+    if(showSpinner)setLoading(true);
+    // 백그라운드에서 최신 데이터 fetch
+    try{
+      const [e,v,b]=await Promise.all([api('getEmployees'),api('getVehicles'),api('getBookings')]);
+      if(e.success){setEmployees(e.employees);localStorage.setItem('yic_cache_employees',JSON.stringify(e.employees));}
+      if(v.success){setVehicles(v.vehicles);} // vehicles 캐시 저장 안 함
+      if(b.success){setBookings(b.bookings);localStorage.setItem('yic_cache_bookings',JSON.stringify(b.bookings));}
+    }catch(err){console.error(err);}
+    if(showSpinner)setLoading(false);
+    if(showRefresh)setRefreshing(false);
+  };
+
+  const handleLogin=async(e)=>{
+    e.preventDefault();setLoginLoading(true);
+    const empNo=e.target.empNo.value.trim().toUpperCase();
+    const pwd=e.target.password.value;
+    try{
+      const r=await api('login',{empNo,password:pwd});
+      if(r.success){setCurrentUser(r.user);setIsLoggedIn(true);localStorage.setItem('yic_user',JSON.stringify(r.user));loadData(true);}
+      else alert(t[lang].loginError);
+    }catch{alert('Connection error.');}
+    setLoginLoading(false);
+  };
+
+  const handleLogout=()=>{
+    setIsLoggedIn(false);setCurrentUser(null);setBookings([]);setEmployees([]);setVehicles([]);
+    localStorage.removeItem('yic_user');
+    localStorage.removeItem('yic_cache_employees');
+    localStorage.removeItem('yic_cache_vehicles');
+    localStorage.removeItem('yic_cache_bookings');
+  };
+
+  const handleSubmit=async(e)=>{
+    e.preventDefault();
+    if(selEmps.length===0)return;
+    const fd=new FormData(e.target);
+    const startDate=fd.get('startDate');
+    const destStr=destinations.filter(d=>d.trim()).join(' → ');
+
+    // 중복 예약 체크: 같은 날짜에 선택된 직원이 이미 예약했는지
+    const datePrefix=startDate?startDate.substring(0,10):'';
+    const dupCheck=selEmps.filter(emp=>{
+      return bookings.some(b=>
+        b.status!=='rejected'&&
+        b.startDate&&b.startDate.includes(datePrefix)&&
+        b.passengers&&b.passengers.split(', ').includes(emp.nameEn)
+      );
+    });
+    if(dupCheck.length>0){
+      const names=dupCheck.map(e=>e.nameEn).join(', ');
+      if(!confirm('⚠️ Duplicate booking detected!\n\n'+names+' already have a booking on this date.\n\nContinue anyway?'))return;
+    }
+
+    // 비슷한 루트/시간 예약 알림
+    const similar=bookings.filter(b=>{
+      if(b.status==='rejected')return false;
+      if(!b.startDate||!b.destinations)return false;
+      const bTime=new Date(b.startDate).getTime();
+      const sTime=new Date(startDate).getTime();
+      const sameRoute=b.destinations.trim()===destStr.trim();
+      const within10=Math.abs(bTime-sTime)<=10*60*1000;
+      return sameRoute&&within10;
+    });
+    if(similar.length>0){
+      const names=similar.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean).join(', ');
+      if(!confirm('🔀 Similar booking found!\n\nSame route & time: '+names+'\n\nThey may be merged in Auto-Arrange.\nContinue?'))return;
+    }
+
+    setSubmitting(true);
+    try{
+      const r=await api('addBooking',{
+        purpose:fd.get('purpose'),
+        destinations:destStr,
+        startDate,endDate:fd.get('endDate'),
+        passengers:selEmps.map(p=>p.nameEn).join(', '),
+        createdBy:currentUser.empNo
+      });
+      if(r.success){
+        setShowModal(false);setSelEmps([]);setDestinations(['']);setSelectedDate(null);
+        e.target.reset();loadData(false,true);
+      }
+    }catch{alert('Error submitting.');}
+    setSubmitting(false);
+  };
+
+  const updateStatus=async(id,status)=>{await api('updateBooking',{id,status});loadData();};
+  const handleDelete=async(id,createdBy=null)=>{
+    if(!currentUser.isAdmin&&createdBy&&createdBy!==currentUser.empNo){
+      alert('You can only cancel your own bookings.');return;
+    }
+    if(!confirm(t[lang].confirmDelete))return;
+    setGlobalLoading(true);
+    await api('deleteBooking',{id});
+    await loadData(false,true);
+    setGlobalLoading(false);
+  };
+
+  const handleUpdateBooking=async(e)=>{
+    e.preventDefault();
+    setGlobalLoading(true);
+    const fd=new FormData(e.target);
+    await api('updateBooking',{
+      id:editingBooking.id,
+      purpose:fd.get('purpose'),
+      destinations:destinations.filter(d=>d.trim()).join(' → '),
+      startDate:fd.get('startDate'),
+      endDate:fd.get('endDate'),
+      passengers:selEmps.map(p=>p.nameEn).join(', '),
+    });
+    setEditingBooking(null);setSelEmps([]);setDestinations(['']);
+    await loadData(false,true);
+    setGlobalLoading(false);
+  };
+
+  const handleAutoArrange=()=>{
+    setArrangeLoading(true);
+    setTimeout(()=>{
+      const result=autoArrange(bookings,vehicles);
+      setArrangeResult(result);
+      setArrangeLoading(false);
+      setAdminSubTab('arrange');
+    },500);
+  };
+
+  const handleApproveGroup=async(groupResult)=>{
+    setGlobalLoading(true);
+    const ids=groupResult.group.map(b=>String(b.id));
+    const vName=groupResult.assignedVehicle
+      ?groupResult.assignedVehicle.name+' ('+groupResult.assignedVehicle.plate+')'
+      :'TBD';
+    await api('approveGroup',{bookingIds:ids,vehicle:vName});
+    setArrangeResult(prev=>prev?prev.filter(r=>r!==groupResult):null);
+    await loadData(false,true);
+    setGlobalLoading(false);
+  };
+
+  const handleApproveAll=async()=>{
+    if(!arrangeResult)return;
+    setGlobalLoading(true);
+    for(const gr of arrangeResult){
+      const ids=gr.group.map(b=>String(b.id));
+      const vName=gr.assignedVehicle?gr.assignedVehicle.name+' ('+gr.assignedVehicle.plate+')':'TBD';
+      await api('approveGroup',{bookingIds:ids,vehicle:vName});
+    }
+    setArrangeResult(null);
+    await loadData(false,true);
+    setGlobalLoading(false);
+  };
+
+  const handleToggle=(id,field,value)=>{
+    // 즉시 로컬 state 업데이트 (깜빡임 없음)
+    setVehicles(prev=>prev.map(v=>v.id===id?{...v,[field]:value}:v));
+    // 백그라운드에서 API 호출
+    api('toggleVehicle',{id,field,value}).catch(()=>{
+      // 실패시 롤백
+      setVehicles(prev=>prev.map(v=>v.id===id?{...v,[field]:!value}:v));
+    });
+  };
+
+  const handleSaveVehicle=async(e)=>{
+    e.preventDefault();
+    setGlobalLoading(true);
+    const fd=new FormData(e.target);
+    const data={
+      name:fd.get('name'),plate:fd.get('plate'),
+      seats:Number(fd.get('seats')),driver:fd.get('driver'),
+      isRental:fd.get('isRental')==='true'
+    };
+    if(editingVehicle){
+      await api('updateVehicle',{id:editingVehicle.id,...data});
+    }else{
+      await api('addVehicle',data);
+    }
+    setShowVehicleModal(false);setEditingVehicle(null);
+    await loadData(false,true);
+    setGlobalLoading(false);
+  };
+
+  const handleDeleteVehicle=async(id)=>{
+    const vehicle=vehicles.find(v=>v.id===id);
+    if(!vehicle)return;
+    
+    // 해당 차량이 배정된 예약 확인
+    const affectedBookings=bookings.filter(b=>
+      b.vehicle&&b.vehicle.includes(vehicle.name)&&b.status==='approved'
+    );
+    
+    if(affectedBookings.length>0){
+      const msg='This vehicle has '+affectedBookings.length+' approved booking(s). They will be reset to Pending status. Continue?';
+      if(!confirm(msg))return;
+    }else{
+      if(!confirm(t[lang].confirmDelete))return;
+    }
+    
+    setGlobalLoading(true);
+    
+    // 해당 차량의 모든 예약을 pending으로 되돌리고 차량 정보 제거
+    for(const b of affectedBookings){
+      await api('updateBooking',{id:b.id,vehicle:'',status:'pending'});
+    }
+    
+    await api('deleteVehicle',{id});
+    await loadData(false,true);
+    setGlobalLoading(false);
+  };
+
+  const exportExcel=()=>{
+    let filtered=filterStatus==='all'?bookings:bookings.filter(b=>b.status===filterStatus);
+    
+    // 날짜 필터 적용
+    if(excelDateFilter==='single'&&excelStartDate){
+      filtered=filtered.filter(b=>b.startDate&&b.startDate.startsWith(excelStartDate));
+    }else if(excelDateFilter==='range'&&excelStartDate&&excelEndDate){
+      filtered=filtered.filter(b=>{
+        if(!b.startDate)return false;
+        const bookingDate=b.startDate.split('T')[0];
+        return bookingDate>=excelStartDate&&bookingDate<=excelEndDate;
+      });
+    }
+    
+    const data=filtered
+      .map((b,i)=>{
+        // passengers 이름에서 department 찾기
+        const paxNames=b.passengers?b.passengers.split(', ').map(n=>n.trim()):[];
+        const paxWithDept=paxNames.map(name=>{
+          const emp=employees.find(e=>e.nameEn===name);
+          return emp&&emp.department?name+' ('+emp.department+')':name;
+        }).join(', ');
+        
+        // Route를 Departure와 Destination으로 분리
+        const route=b.destinations?b.destinations.split(' → '):[];
+        const departure=route[0]||'';
+        const destinations=route.slice(1);
+        
+        // 컬럼 순서를 명시적으로 지정
+        const row={
+          No:i+1,
+          Vehicle:b.vehicle,
+          Purpose:b.purpose,
+          Departure:departure,
+          'Destination 1':destinations[0]||'',
+          'Destination 2':destinations[1]||'',
+          'Destination 3':destinations[2]||'',
+          Passengers:paxWithDept,
+          'Pax Q\'ty':paxNames.length,
+          Start:b.startDate,
+          End:b.endDate,
+          Status:b.status,
+          CreatedBy:b.createdBy,
+          Group:b.groupId
+        };
+        
+        return row;
+      });
+    const ws=XLSX.utils.json_to_sheet(data);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Bookings');
+    XLSX.writeFile(wb,'YIC_Booking_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  };
+
+  // 승객 이름 포맷: 이름(사번)
+  const formatPassenger=(name)=>{
+    const emp=employees.find(e=>e.nameEn===name.trim());
+    if(!emp||!emp.empNo)return name;
+    return name+' ('+emp.empNo+')';
+  };
+
+  // Merge for display only (calendar/booking status)
+  const getDisplayGroups=(bList)=>{
+    const active=bList.filter(b=>b.status!=='rejected');
+    const used=new Set();
+    const groups=[];
+    for(let i=0;i<active.length;i++){
+      if(used.has(active[i].id))continue;
+      const base=active[i];
+      const group=[base];
+      used.add(base.id);
+      for(let j=i+1;j<active.length;j++){
+        if(used.has(active[j].id))continue;
+        const b=active[j];
+        // 승인된 예약: 같은 차량(vehicle)이어야 같은 칩
+        // 미승인 예약: 같은 루트+10분 이내면 같은 칩
+        const bothApproved=base.status==='approved'&&b.status==='approved';
+        if(bothApproved){
+          const sameVehicle=base.vehicle&&b.vehicle&&base.vehicle===b.vehicle;
+          const timeDiff=Math.abs(new Date(base.startDate).getTime()-new Date(b.startDate).getTime());
+          const within10=timeDiff<=10*60*1000;
+          if(sameVehicle&&within10){group.push(b);used.add(b.id);}
+        }else{
+          const sameRoute=base.destinations&&b.destinations&&base.destinations.trim()===b.destinations.trim();
+          const timeDiff=Math.abs(new Date(base.startDate).getTime()-new Date(b.startDate).getTime());
+          const within10=timeDiff<=10*60*1000;
+          if(sameRoute&&within10){group.push(b);used.add(b.id);}
+        }
+      }
+      groups.push(group);
+    }
+    return groups;
+  };
+
+  const filteredEmps=employees.filter(e=>
+    e.nameEn?.toLowerCase().includes(searchTerm.toLowerCase())||
+    e.nameVn?.toLowerCase().includes(searchTerm.toLowerCase())||
+    e.department?.toLowerCase().includes(searchTerm.toLowerCase())||
+    String(e.empNo).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filtered=filterStatus==='all'?bookings:bookings.filter(b=>b.status===filterStatus);
+  // 모든 날짜 계산 UTC+7 기준
+  const year=currentMonth.getUTCFullYear(),month=currentMonth.getUTCMonth();
+  const firstDay=new Date(Date.UTC(year,month,1)).getUTCDay();
+  const daysInMonth=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+  const _now=new Date();
+  const _vnNow=new Date(_now.getTime()+7*60*60*1000);
+  const todayY=_vnNow.getUTCFullYear(),todayM=_vnNow.getUTCMonth(),todayD=_vnNow.getUTCDate();
+  const today={getDate:()=>todayD,getMonth:()=>todayM,getFullYear:()=>todayY};
+
+  // ============ 로그인 화면 ============
+  if(!isLoggedIn)return(
+    <div style={{minHeight:'100vh',background:'var(--black)',display:'flex',alignItems:'center',justifyContent:'center',padding:'1rem'}}>
+      <button onClick={()=>setLang(lang==='en'?'vi':'en')} style={{position:'fixed',top:20,right:20,background:'var(--black3)',border:'1px solid var(--border2)',padding:'7px 14px',borderRadius:8,fontWeight:600,color:'var(--lime)',fontSize:13}}>
+        {lang==='en'?'🇻🇳 VI':'🇬🇧 EN'}
+      </button>
+      <div style={{background:'var(--black2)',borderRadius:20,border:'1px solid var(--border)',padding:'2.5rem',width:'100%',maxWidth:400,boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}} className="fade-in">
+        <div style={{textAlign:'center',marginBottom:'2rem'}}>
+          <img src={LOGO} alt="YIC" style={{width:72,height:72,borderRadius:16,marginBottom:'1rem',objectFit:'contain'}}/>
+          <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'var(--text)',letterSpacing:'-0.5px'}}>YIC Booking</h1>
+          <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>{t[lang].title}</p>
+        </div>
+        <form onSubmit={handleLogin} style={{display:'flex',flexDirection:'column',gap:'0.875rem'}}>
+          <div>
+            <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--text2)',marginBottom:5,letterSpacing:'.5px',textTransform:'uppercase'}}>{t[lang].employeeId}</label>
+            <input type="text" name="empNo" required style={{width:'100%',padding:'11px 13px'}} placeholder="e.g. VPHN75"/>
+          </div>
+          <div>
+            <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--text2)',marginBottom:5,letterSpacing:'.5px',textTransform:'uppercase'}}>{t[lang].password}</label>
+            <input type="password" name="password" required style={{width:'100%',padding:'11px 13px'}} placeholder="••••••••"/>
+          </div>
+          <button type="submit" disabled={loginLoading} className="btn-lime" style={{padding:'12px',fontSize:14,marginTop:4}}>
+            {loginLoading?t[lang].loading:t[lang].loginButton}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+
+  if(loading)return(
+    <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',minHeight:'100vh',gap:12}}>
+      <div className="spinner"></div>
+      <p style={{color:'var(--text3)',fontSize:13}}>{t[lang].loading}</p>
+      {currentUser.nameEn&&<p style={{color:'var(--lime)',fontSize:15,fontWeight:600,marginTop:4}}>Good day, {currentUser.nameEn}! 👋</p>}
+    </div>
+  );
+
+  // ============ 메인 UI ============
+  return(
+    <div style={{minHeight:'100vh',background:'var(--black)'}}>
+      {/* 헤더 */}
+      <div style={{background:'var(--black2)',borderBottom:'1px solid var(--border)',padding:'0 1.5rem',position:'sticky',top:0,zIndex:40}}>
+        <div style={{maxWidth:1400,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',height:60}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <img src={LOGO} alt="YIC" style={{width:36,height:36,borderRadius:8,objectFit:'contain'}}/>
+            <div>
+              <span style={{fontWeight:800,fontSize:'1rem',color:'var(--text)',letterSpacing:'-0.3px'}}>YIC Vehicle Booking</span>
+              <span style={{marginLeft:8,fontSize:12,color:'var(--text3)'}}>Hello, <span style={{color:'var(--lime)',fontWeight:600}}>{currentUser.nameEn}</span>{currentUser.isAdmin?' 👑':''}</span>
+            </div>
+          </div>
+          <div className="header-nav" style={{display:'flex',gap:6,alignItems:'center'}}>
+            <button onClick={()=>setView('calendar')} style={{padding:'6px 14px',borderRadius:7,fontWeight:600,fontSize:13,border:'1px solid',borderColor:view==='calendar'?'var(--lime)':'var(--border2)',background:view==='calendar'?'var(--lime-bg2)':'transparent',color:view==='calendar'?'var(--lime)':'var(--text2)'}}>
+              📅 {t[lang].calendar}
+            </button>
+            {currentUser.isAdmin&&(
+              <button onClick={()=>setView('admin')} style={{padding:'6px 14px',borderRadius:7,fontWeight:600,fontSize:13,border:'1px solid',borderColor:view==='admin'?'var(--lime)':'var(--border2)',background:view==='admin'?'var(--lime-bg2)':'transparent',color:view==='admin'?'var(--lime)':'var(--text2)'}}>
+                ⚙️ {t[lang].management}
+              </button>
+            )}
+            <button onClick={()=>setLang(lang==='en'?'vi':'en')} style={{padding:'6px 10px',borderRadius:7,fontSize:13,border:'1px solid var(--border2)',background:'transparent',color:'var(--text2)'}}>
+              {lang==='en'?'🇻🇳':'🇬🇧'}
+            </button>
+            <button onClick={toggleTheme} style={{padding:'6px 12px',borderRadius:7,fontSize:16,border:'1px solid var(--border2)',background:'var(--black3)',color:'var(--text2)'}}>
+              {theme==='dark'?'☀️':'🌙'}
+            </button>
+            <button onClick={handleLogout} style={{padding:'6px 14px',borderRadius:7,fontWeight:600,fontSize:13,border:'1px solid rgba(239,68,68,0.3)',background:'rgba(239,68,68,0.1)',color:'#EF4444'}}>
+              {t[lang].exit}
+            </button>
+
+          </div>
+        </div>
+      </div>
+
+      {/* ======= CALENDAR VIEW ======= */}
+      {view==='calendar'&&(
+        <div className="main-wrap">
+          {/* 차량 카드 */}
+          <div style={{display:'flex',gap:'0.75rem',marginBottom:'1.25rem',overflowX:'auto',paddingBottom:4}}>
+            {vehicles.map(v=>(
+              <div key={v.id} className="card" onClick={()=>setSelectedDriver(selectedDriver===v.id?null:v.id)} 
+                style={{padding:'0.875rem 1rem',display:'flex',gap:'0.75rem',alignItems:'center',minWidth:180,flexShrink:0,
+                  opacity:(v.isActive&&v.driverActive)?1:0.4,cursor:'pointer',
+                  border:selectedDriver===v.id?'2px solid var(--lime)':'1px solid var(--border)',
+                  background:selectedDriver===v.id?'var(--lime-bg)':'var(--black2)'}}>
+                <div style={{width:44,height:44,borderRadius:'50%',overflow:'hidden',background:'var(--black4)',flexShrink:0,border:'2px solid var(--border2)'}}>
+                  {DRIVER_IMAGES[v.driver]?<img src={DRIVER_IMAGES[v.driver]} alt={v.driver} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>👤</div>}
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v.name}</div>
+                  <div style={{fontSize:11,color:'var(--lime)',fontFamily:'monospace'}}>{v.plate}</div>
+                  <div style={{fontSize:11,color:(!v.isActive||!v.driverActive)?'var(--rejected)':'var(--text3)'}}>{(!v.isActive)?'🚫 Unavailable':(!v.driverActive)?'👤 No Driver':v.driver}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 좌우 레이아웃 */}
+          <div className="main-grid" style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) 360px',gap:'1.25rem',alignItems:'start'}}>
+            {/* 캘린더 */}
+            <div className="card" style={{padding:'1.25rem'}}>
+              {refreshing&&(
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--lime-bg2)',borderRadius:8,marginBottom:10,fontSize:12,color:'var(--lime)',fontWeight:600,boxShadow:'0 2px 8px rgba(141,198,63,0.15)'}}>
+                  <div style={{width:14,height:14,border:'2.5px solid rgba(141,198,63,0.25)',borderTopColor:'var(--lime)',borderRadius:'50%',animation:'spin .5s linear infinite'}}></div>
+                  <span style={{letterSpacing:'0.3px'}}>Updating calendar...</span>
+                </div>
+              )}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+                <button onClick={()=>setCurrentMonth(new Date(Date.UTC(year,month-1,1)))} style={{background:'var(--black3)',border:'1px solid var(--border2)',color:'var(--text2)',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>←</button>
+                <h3 style={{fontWeight:700,color:'var(--text)',fontSize:'0.95rem'}}>{new Date(Date.UTC(year,month,1)).toLocaleDateString(lang==='en'?'en-US':'vi-VN',{month:'long',year:'numeric',timeZone:'UTC'})}</h3>
+                <button onClick={()=>setCurrentMonth(new Date(Date.UTC(year,month+1,1)))} style={{background:'var(--black3)',border:'1px solid var(--border2)',color:'var(--text2)',width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>→</button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4,marginBottom:6}}>
+                {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>(
+                  <div key={d} style={{textAlign:'center',padding:'5px 0',fontSize:11,fontWeight:600,color:'var(--text3)',letterSpacing:'.5px'}}>{d}</div>
+                ))}
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+                {Array(firstDay).fill(null).map((_,i)=><div key={'e'+i}></div>)}
+                {Array.from({length:daysInMonth},(_,i)=>i+1).map(day=>{
+                  const dateStr=year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+                  // 예약 날짜도 UTC+7 기준으로 비교
+                  const dayB=bookings.filter(b=>{
+                    if(!b.startDate||b.status==='rejected')return false;
+                    const d=new Date(b.startDate);
+                    const vn=new Date(d.getTime()+7*60*60*1000);
+                    const bDateStr=vn.getUTCFullYear()+'-'+String(vn.getUTCMonth()+1).padStart(2,'0')+'-'+String(vn.getUTCDate()).padStart(2,'0');
+                    return bDateStr===dateStr;
+                  });
+                  const isToday=day===todayD&&month===todayM&&year===todayY;
+                  const dayOfWeek=new Date(Date.UTC(year,month,day)).getUTCDay();
+                  const isSun=dayOfWeek===0;
+                  const isSat=dayOfWeek===6;
+                  const groups=getDisplayGroups(dayB);
+                  return(
+                    <div key={day} className={'cal-day'+(dayB.length>0?' has-booking':'')+(isToday?' is-today':'')}
+                      onClick={()=>setSelectedDate(dateStr)}
+                      style={{background:isToday?'var(--lime-bg2)':dayB.length>0?'var(--black4)':'var(--black3)',borderColor:isToday?'var(--lime)':dayB.length>0?'var(--border2)':'transparent'}}>
+                      <div style={{fontSize:12,fontWeight:isToday?700:500,color:isToday?'var(--lime)':isSun?'#EF4444':isSat?'#60A5FA':'var(--text2)',marginBottom:3}}>{day}</div>
+                      {groups.map((group,gi)=>{
+                        const isM=group.length>1;
+                        const rep=group[0];
+                        const gs=group.every(b=>b.status==='approved')?'approved':group.some(b=>b.status==='pending')?'pending':'approved';
+                        return(
+                          <div key={gi} className={'booking-chip'+(selectedDriver&&group.some(b=>{
+                            const veh=vehicles.find(v=>v.id===selectedDriver);
+                            return veh&&b.vehicle&&b.vehicle.includes(veh.plate);
+                          })?' driver-highlight':'')}
+                            onClick={e=>{e.stopPropagation();isM?setSelectedGroup(group):setSelectedBooking(rep);}}
+                            style={{background:rep.status==='approved'?'var(--approved-bg)':'var(--pending-bg)',color:rep.status==='approved'?'var(--approved)':'var(--pending)',border:isM?'1px solid rgba(141,198,63,0.3)':'none'}}>
+                            {isM?'🔀':'🚗'} {rep.vehicle||(rep.destinations?.split(' → ')[0]?.substring(0,8))||'Booking'}
+                            {isM&&<span style={{opacity:.7}}> ×{group.length}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+              <button onClick={()=>{setShowModal(true);setSelEmps([currentUser]);}} className="btn-lime"
+                style={{width:'100%',padding:'11px',borderRadius:9,fontSize:14,fontWeight:700,marginTop:12,letterSpacing:'-0.2px'}}>
+                ＋ {t[lang].newBooking.replace('+ ','')}
+              </button>
+            </div>
+
+            {/* 오른쪽: Booking Status */}
+            <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 2px',marginBottom:8}}>
+                <div>
+                  <h3 style={{fontWeight:700,color:'var(--text)',fontSize:'0.95rem'}}>📋 {t[lang].bookingStatus}</h3>
+                  {selectedDate&&<p style={{fontSize:11,color:'var(--lime)',marginTop:2}}>📅 {selectedDate}</p>}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2}}>
+                  <span style={{fontSize:12,color:'var(--lime)',fontWeight:600}}>{(selectedDate?bookings.filter(b=>b.status!=='rejected'&&b.startDate?.includes(selectedDate)):bookings.filter(b=>b.status!=='rejected')).length} active</span>
+                  {selectedDate&&<button onClick={()=>setSelectedDate(null)} style={{fontSize:10,color:'var(--text3)',background:'transparent',border:'1px solid var(--border2)',borderRadius:5,padding:'2px 6px',cursor:'pointer'}}>Show All</button>}
+                </div>
+              </div>
+              {/* 검색 입력 */}
+              <input 
+                type="text" 
+                value={bookingSearch} 
+                onChange={e=>setBookingSearch(e.target.value)}
+                placeholder="🔍 Search vehicle, passenger..."
+                style={{width:'100%',padding:'8px 12px',marginBottom:8,background:'var(--black3)',border:'1px solid var(--border2)',borderRadius:7,color:'var(--text)',fontSize:12}}
+              />
+              {/* Quick Stats */}
+              {(()=>{
+                const thisMonth=new Date().getMonth();
+                const thisYear=new Date().getFullYear();
+                const monthBookings=bookings.filter(b=>{
+                  if(!b.startDate)return false;
+                  const d=new Date(b.startDate);
+                  return d.getMonth()===thisMonth&&d.getFullYear()===thisYear&&b.status!=='rejected';
+                });
+                const myBookings=bookings.filter(b=>b.createdBy===currentUser.empNo&&b.status!=='rejected');
+                return(
+                  <div className="card" style={{padding:'0.75rem',textAlign:'center',border:'1px solid rgba(141,198,63,0.3)',background:'var(--lime-bg)'}}>
+                    <div style={{fontSize:22,fontWeight:800,color:'var(--lime)'}}>{myBookings.length}</div>
+                    <div style={{fontSize:10,color:'var(--lime)',marginTop:2}}>My Bookings</div>
+                  </div>
+                );
+              })()}
+              {(()=>{
+                let filtered=selectedDate
+                  ?bookings.filter(b=>b.status!=='rejected'&&b.startDate?.includes(selectedDate))
+                  :bookings.filter(b=>b.status!=='rejected');
+                
+                // 검색 필터
+                if(bookingSearch.trim()){
+                  const search=bookingSearch.toLowerCase();
+                  filtered=filtered.filter(b=>
+                    (b.vehicle&&b.vehicle.toLowerCase().includes(search))||
+                    (b.passengers&&b.passengers.toLowerCase().includes(search))||
+                    (b.purpose&&b.purpose.toLowerCase().includes(search))
+                  );
+                }
+                return filtered.length===0?(
+                  <div className="card" style={{padding:'2rem',textAlign:'center',color:'var(--text3)',fontSize:13}}>{selectedDate?'No bookings on this date':t[lang].noBookings}</div>
+                ):getDisplayGroups(filtered).sort((a,b)=>{
+                  const aIsMine=a[0].createdBy===currentUser.empNo;
+                  const bIsMine=b[0].createdBy===currentUser.empNo;
+                  if(aIsMine&&!bIsMine)return -1;
+                  if(!aIsMine&&bIsMine)return 1;
+                  return 0;
+                }).map((group,gi)=>{
+                const isM=group.length>1;
+                const rep=group[0];
+                const allPax=group.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean);
+                const gs=group.every(b=>b.status==='approved')?'approved':group.some(b=>b.status==='pending')?'pending':'approved';
+                return(
+                  <div key={gi} className="card fade-in" style={{padding:'1rem',border:rep.createdBy===currentUser.empNo?'2px solid var(--lime)':isM?'1px solid rgba(141,198,63,0.25)':'1px solid var(--border)',background:rep.createdBy===currentUser.empNo?'var(--lime-bg)':'var(--black2)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,cursor:'pointer'}}
+                      onClick={()=>isM?setSelectedGroup(group):setSelectedBooking(rep)}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontWeight:700,fontSize:13,color:'var(--lime)'}}>
+                          {isM?'🔀':'🚗'} {rep.vehicle||'Pending Assignment'}
+                          {isM&&<span style={{marginLeft:4,fontSize:11,color:'var(--text3)',fontWeight:400}}>{t[lang].merged} ×{group.length}</span>}
+                        </span>
+                        {rep.createdBy===currentUser.empNo&&<span style={{fontSize:9,padding:'2px 6px',background:'var(--lime)',color:'var(--black)',borderRadius:4,fontWeight:700}}>MY</span>}
+                      </div>
+                      <span className={'tag tag-'+gs} style={{fontSize:10}}>
+                        {gs==='pending'?'⏳ '+t[lang].pending:gs==='approved'?'✅ '+t[lang].approved:''}
+                      </span>
+                    </div>
+                    <p style={{color:'var(--text)',fontSize:12,marginBottom:4,fontWeight:500,cursor:'pointer'}} onClick={()=>isM?setSelectedGroup(group):setSelectedBooking(rep)}>{rep.purpose}</p>
+                    <p style={{fontSize:11,color:'var(--text3)',marginBottom:2}}>📅 {fmtDate(rep.startDate)}</p>
+                    <p style={{fontSize:11,color:'var(--text2)',marginBottom:2}}>👥 {isM?allPax.map(formatPassenger).join(', '):rep.passengers?.split(', ').map(formatPassenger).join(', ')} ({isM?allPax.length:rep.passengers?.split(',').length||1} {t[lang].pax})</p>
+                    <p style={{fontSize:11,color:'var(--text3)',marginBottom:6}}>📍 {rep.destinations}</p>
+                    {/* 본인 예약 수정/취소 버튼 */}
+                    {!isM&&rep.status==='pending'&&rep.createdBy===currentUser.empNo&&(
+                      <div style={{display:'flex',gap:6,marginTop:4}}>
+                        <button onClick={e=>{
+                          e.stopPropagation();
+                          const paxList=rep.passengers?rep.passengers.split(', ').map(p=>p.trim()):[];
+                          setEditingBooking(rep);
+                          setSelEmps(employees.filter(emp=>paxList.includes(emp.nameEn)));
+                          setDestinations(rep.destinations?rep.destinations.split(' → '):[rep.destinations||'']);
+                          setSearchTerm('');
+                        }} style={{flex:1,padding:'5px',background:'var(--blue-bg)',color:'var(--blue)',borderRadius:6,border:'1px solid rgba(96,165,250,0.3)',fontSize:11,fontWeight:600}}>
+                          ✏️ Edit
+                        </button>
+                        <button onClick={e=>{e.stopPropagation();if(confirm('Cancel your booking?'))handleDelete(rep.id,rep.createdBy);}}
+                          style={{flex:1,padding:'5px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:6,border:'1px solid rgba(239,68,68,0.3)',fontSize:11,fontWeight:600}}>
+                          ✕ Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              });})()}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ======= ADMIN VIEW ======= */}
+      {view==='admin'&&currentUser.isAdmin&&(
+        <div className="main-wrap">
+          {/* Admin 탭 */}
+          <div style={{display:'flex',gap:6,marginBottom:'1.25rem',flexWrap:'wrap'}}>
+            {[['dashboard','📊 Dashboard'],['bookings','📋 Bookings'],['arrange','⚡ Auto-Arrange'],['vehicles','🚗 Vehicles']].map(([tab,label])=>(
+              <button key={tab} onClick={()=>setAdminSubTab(tab)} style={{padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:13,border:'1px solid',borderColor:adminSubTab===tab?'var(--lime)':'var(--border2)',background:adminSubTab===tab?'var(--lime-bg2)':'transparent',color:adminSubTab===tab?'var(--lime)':'var(--text2)'}}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* --- Dashboard 탭 --- */}
+          {adminSubTab==='dashboard'&&(()=>{
+            const approved=bookings.filter(b=>b.status==='approved');
+            const pending=bookings.filter(b=>b.status==='pending');
+            const rejected=bookings.filter(b=>b.status==='rejected');
+            // 차량별 운행 횟수
+            const vMap={};
+            approved.forEach(b=>{const k=b.vehicle||'Unassigned';vMap[k]=(vMap[k]||0)+1;});
+            const vStats=Object.entries(vMap).sort((a,b)=>b[1]-a[1]);
+            // 루트별 빈도
+            const rMap={};
+            bookings.filter(b=>b.status!=='rejected').forEach(b=>{const k=b.destinations||'Unknown';rMap[k]=(rMap[k]||0)+1;});
+            const rStats=Object.entries(rMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            // 신청자별
+            const eMap={};
+            bookings.filter(b=>b.status!=='rejected').forEach(b=>{const k=b.createdBy||'?';eMap[k]=(eMap[k]||0)+1;});
+            const eStats=Object.entries(eMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            return(
+              <div style={{display:'flex',flexDirection:'column',gap:'1.25rem'}}>
+                {/* 요약 카드 */}
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'1rem'}}>
+                  {[
+                    {label:'Total Bookings',val:bookings.length,color:'var(--lime)'},
+                    {label:'Approved',val:approved.length,color:'var(--approved)'},
+                    {label:'Pending',val:pending.length,color:'var(--pending)'},
+                    {label:'Rejected',val:rejected.length,color:'var(--rejected)'},
+                  ].map(s=>(
+                    <div key={s.label} className="card" style={{padding:'1.25rem',textAlign:'center'}}>
+                      <div style={{fontSize:'2rem',fontWeight:800,color:s.color}}>{s.val}</div>
+                      <div style={{fontSize:12,color:'var(--text3)',marginTop:4}}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'1rem'}}>
+                  {/* 차량별 운행 */}
+                  <div className="card" style={{padding:'1.25rem'}}>
+                    <div style={{fontWeight:700,color:'var(--text)',marginBottom:'0.875rem',fontSize:13}}>🚗 Vehicle Usage</div>
+                    {vStats.length===0?<p style={{color:'var(--text3)',fontSize:12}}>No data</p>:vStats.map(([name,cnt])=>(
+                      <div key={name} style={{marginBottom:8}}>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                          <span style={{color:'var(--text)',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'70%'}}>{name.split('(')[0].trim()}</span>
+                          <span style={{color:'var(--lime)',fontWeight:700}}>{cnt}x</span>
+                        </div>
+                        <div style={{height:4,background:'var(--border2)',borderRadius:2}}>
+                          <div style={{height:'100%',background:'var(--lime)',borderRadius:2,width:(cnt/Math.max(...vStats.map(v=>v[1]))*100)+'%',transition:'width .5s'}}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 루트별 빈도 */}
+                  <div className="card" style={{padding:'1.25rem'}}>
+                    <div style={{fontWeight:700,color:'var(--text)',marginBottom:'0.875rem',fontSize:13}}>📍 Top Routes</div>
+                    {rStats.length===0?<p style={{color:'var(--text3)',fontSize:12}}>No data</p>:rStats.map(([route,cnt])=>(
+                      <div key={route} style={{marginBottom:8}}>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                          <span style={{color:'var(--text)',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'70%'}}>{route}</span>
+                          <span style={{color:'var(--blue)',fontWeight:700}}>{cnt}x</span>
+                        </div>
+                        <div style={{height:4,background:'var(--border2)',borderRadius:2}}>
+                          <div style={{height:'100%',background:'var(--blue)',borderRadius:2,width:(cnt/Math.max(...rStats.map(r=>r[1]))*100)+'%',transition:'width .5s'}}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 신청자별 */}
+                  <div className="card" style={{padding:'1.25rem'}}>
+                    <div style={{fontWeight:700,color:'var(--text)',marginBottom:'0.875rem',fontSize:13}}>👤 Top Requesters</div>
+                    {eStats.length===0?<p style={{color:'var(--text3)',fontSize:12}}>No data</p>:eStats.map(([emp,cnt])=>(
+                      <div key={emp} style={{marginBottom:8}}>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                          <span style={{color:'var(--text)',fontWeight:500}}>{emp}</span>
+                          <span style={{color:'var(--pending)',fontWeight:700}}>{cnt}x</span>
+                        </div>
+                        <div style={{height:4,background:'var(--border2)',borderRadius:2}}>
+                          <div style={{height:'100%',background:'var(--pending)',borderRadius:2,width:(cnt/Math.max(...eStats.map(e=>e[1]))*100)+'%',transition:'width .5s'}}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* --- Bookings 탭 --- */}
+          {adminSubTab==='bookings'&&(
+            <>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:8}}>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {['all','pending','approved','rejected'].map(s=>(
+                    <button key={s} onClick={()=>setFilterStatus(s)} style={{padding:'6px 14px',borderRadius:7,fontWeight:600,fontSize:12,border:'1px solid',borderColor:filterStatus===s?'var(--lime)':'var(--border2)',background:filterStatus===s?'var(--lime-bg2)':'transparent',color:filterStatus===s?'var(--lime)':'var(--text2)'}}>
+                      {t[lang][s]} ({s==='all'?bookings.length:bookings.filter(b=>b.status===s).length})
+                    </button>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={handleAutoArrange} className="btn-lime" style={{padding:'7px 18px',borderRadius:8,fontSize:13,display:'flex',alignItems:'center',gap:6}}>
+                    {t[lang].autoArrange}
+                  </button>
+                  {/* Excel 날짜 필터 */}
+                  <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+                    <select value={excelDateFilter} onChange={e=>setExcelDateFilter(e.target.value)} 
+                      style={{padding:'6px 10px',borderRadius:7,fontSize:12,background:'var(--black3)',color:'var(--text)',border:'1px solid var(--border2)'}}>
+                      <option value="all">All Dates</option>
+                      <option value="single">Single Date</option>
+                      <option value="range">Date Range</option>
+                    </select>
+                    {excelDateFilter==='single'&&(
+                      <input type="date" value={excelStartDate} style={{colorScheme:'dark'}}  onChange={e=>setExcelStartDate(e.target.value)}
+                        style={{padding:'6px 10px',borderRadius:7,fontSize:12,background:'var(--black3)',color:'var(--text)',border:'1px solid var(--border2)'}}/>
+                    )}
+                    {excelDateFilter==='range'&&(
+                      <>
+                        <input type="date" value={excelStartDate} style={{colorScheme:'dark'}}  onChange={e=>setExcelStartDate(e.target.value)}
+                          style={{padding:'6px 10px',borderRadius:7,fontSize:12,background:'var(--black3)',color:'var(--text)',border:'1px solid var(--border2)'}}
+                          placeholder="From"/>
+                        <span style={{color:'var(--text3)'}}>~</span>
+                        <input type="date" value={excelEndDate} style={{colorScheme:'dark'}}  onChange={e=>setExcelEndDate(e.target.value)}
+                          style={{padding:'6px 10px',borderRadius:7,fontSize:12,background:'var(--black3)',color:'var(--text)',border:'1px solid var(--border2)'}}
+                          placeholder="To"/>
+                      </>
+                    )}
+                  </div>
+                  <button onClick={exportExcel} style={{padding:'6px 16px',background:'var(--lime-bg2)',color:'var(--lime)',fontWeight:600,borderRadius:7,border:'1px solid rgba(141,198,63,0.3)',fontSize:12}}>
+                    📥 {t[lang].downloadExcel}
+                  </button>
+                </div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
+                {filtered.map(b=>(
+                  <div key={b.id} className="card fade-in" style={{padding:'1.25rem',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem'}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                        <span style={{fontWeight:700,color:'var(--lime)'}}>🚗 {b.vehicle||'(No vehicle assigned)'}</span>
+                        <span className={'tag tag-'+b.status}>{b.status==='pending'?'⏳ '+t[lang].pending:b.status==='approved'?'✅ '+t[lang].approved:'❌ '+t[lang].rejected}</span>
+                        {b.groupId&&<span className="tag tag-arranged" style={{fontSize:10}}>🔀 Grouped</span>}
+                      </div>
+                      <p style={{color:'var(--text)',fontSize:13,marginBottom:3,fontWeight:500}}>{b.purpose}</p>
+                      <p style={{fontSize:12,color:'var(--text2)',marginBottom:2}}>📅 {fmtDate(b.startDate)} → {fmtDate(b.endDate)}</p>
+                      <p style={{fontSize:12,color:'var(--text2)',marginBottom:2}}>
+                        👥 {b.passengers?.split(', ').map(formatPassenger).join(', ')}
+                        <span style={{marginLeft:8,color:'var(--lime)',fontWeight:700}}>({b.passengers?.split(', ').length || 0} total)</span>
+                      </p>
+                      <p style={{fontSize:12,color:'var(--text2)',marginBottom:2}}>📍 {b.destinations}</p>
+                      <p style={{fontSize:11,color:'var(--text)'}}>by {(()=>{
+                        const emp=employees.find(e=>e.empNo===b.createdBy);
+                        return emp?emp.nameEn+' ('+emp.empNo+')':b.createdBy;
+                      })()}</p>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6,minWidth:90}}>
+                      {b.status==='pending'&&(
+                        <>
+                          <button onClick={()=>updateStatus(b.id,'approved')} style={{padding:'6px 10px',background:'var(--approved-bg)',color:'var(--approved)',borderRadius:7,border:'1px solid rgba(141,198,63,0.3)',fontWeight:600,fontSize:11}}>✅ {t[lang].approve}</button>
+                          <button onClick={()=>updateStatus(b.id,'rejected')} style={{padding:'6px 10px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:7,border:'1px solid rgba(239,68,68,0.3)',fontWeight:600,fontSize:11}}>❌ {t[lang].reject}</button>
+                        </>
+                      )}
+                      <button onClick={()=>{
+  const paxList=b.passengers?b.passengers.split(', ').map(p=>p.trim()):[];
+  setEditingBooking(b);
+  setSelEmps(employees.filter(e=>paxList.includes(e.nameEn)));
+  setDestinations(b.destinations?b.destinations.split(' → '):[b.destinations||'']);
+  setSearchTerm('');
+}} style={{padding:'6px 10px',background:'var(--blue-bg)',color:'var(--blue)',borderRadius:7,border:'1px solid rgba(96,165,250,0.3)',fontWeight:600,fontSize:11}}>✏️ Edit</button>
+                      <button onClick={()=>handleDelete(b.id)} style={{padding:'6px 10px',background:'var(--black3)',color:'var(--text3)',borderRadius:7,border:'1px solid var(--border2)',fontWeight:600,fontSize:11}}>🗑️ {t[lang].delete}</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* --- Auto-Arrange 탭 --- */}
+          {adminSubTab==='arrange'&&(
+            <>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+                <div>
+                  <h3 style={{fontWeight:700,color:'var(--text)',marginBottom:4}}>⚡ {t[lang].arrangeResult}</h3>
+                  <p style={{fontSize:12,color:'var(--text3)'}}>{t[lang].autoArrangeDesc}</p>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={handleAutoArrange} style={{padding:'7px 16px',background:'var(--black3)',color:'var(--text2)',borderRadius:8,border:'1px solid var(--border2)',fontWeight:600,fontSize:12}}>
+                    🔄 Re-run
+                  </button>
+                  {arrangeResult&&(
+                    <button onClick={()=>setArrangeResult(null)} style={{padding:'7px 16px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:8,border:'1px solid rgba(239,68,68,0.3)',fontWeight:600,fontSize:12}}>
+                      ✕ Cancel
+                    </button>
+                  )}
+                  {arrangeResult&&arrangeResult.length>0&&(
+                    <button onClick={handleApproveAll} className="btn-lime" style={{padding:'7px 18px',borderRadius:8,fontSize:13}}>
+                      ✅ {t[lang].approveAll}
+                    </button>
+                  )}
+                </div>
+              </div>
+              {arrangeLoading?(
+                <div style={{display:'flex',justifyContent:'center',padding:'3rem'}}><div className="spinner"></div></div>
+              ):!arrangeResult?(
+                <div className="card" style={{padding:'3rem',textAlign:'center',color:'var(--text3)'}}>{t[lang].noArrangeResult}</div>
+              ):(
+                <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
+                  {arrangeResult.map((gr,gi)=>{
+                    const allPax=gr.group.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean);
+                    const returnTimeDiff=gr.group.some(b=>{
+                      const t0=new Date(gr.group[0].endDate).getTime();
+                      const t1=new Date(b.endDate).getTime();
+                      return Math.abs(t0-t1)>0;
+                    });
+                    return(
+                      <div key={gi} className="card" style={{padding:'1.25rem',border:'1px solid rgba(141,198,63,0.2)'}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'1rem'}}>
+                          <div>
+                            <div style={{fontWeight:800,fontSize:15,color:'var(--lime)',marginBottom:4}}>
+                              Group {gi+1} · {allPax.length} {t[lang].pax}
+                              {gr.group.length>1&&<span style={{marginLeft:8,fontSize:12,color:'var(--text3)',fontWeight:400}}>({gr.group.length} bookings merged)</span>}
+                            </div>
+                            {gr.assignedVehicle&&allPax.length>gr.assignedVehicle.seats&&(
+                              <div style={{fontSize:11,color:'var(--rejected)',marginBottom:4}}>🚨 Seats exceeded! {allPax.length} passengers / {gr.assignedVehicle.seats} seats — please reassign a larger vehicle</div>
+                            )}
+                            <div style={{fontSize:12,color:'var(--text3)'}}>📍 {gr.group[0].destinations}</div>
+                            <div style={{fontSize:12,color:'var(--text3)'}}>📅 {fmtDate(gr.group[0].startDate)}</div>
+                            {returnTimeDiff&&<div style={{fontSize:11,color:'var(--pending)',marginTop:4}}>⚠️ Return times differ — please confirm with passengers</div>}
+                          </div>
+                          <button onClick={()=>handleApproveGroup(gr)} style={{padding:'8px 16px',background:'var(--approved-bg)',color:'var(--approved)',border:'1px solid rgba(141,198,63,0.3)',borderRadius:8,fontWeight:700,fontSize:12}}>
+                            ✅ Approve
+                          </button>
+                        </div>
+                        {/* 배정 차량 */}
+                        {gr.assignedVehicle&&allPax.length>gr.assignedVehicle.seats&&(
+                          <div style={{padding:'8px 12px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,fontSize:12,color:'var(--rejected)',marginBottom:8,fontWeight:600}}>
+                            ⚠️ Seat shortage: {allPax.length} passengers / {gr.assignedVehicle.seats} seats — please reassign a larger vehicle
+                          </div>
+                        )}
+                        <div style={{display:'flex',alignItems:'center',gap:12,padding:'0.875rem',background:'var(--black3)',borderRadius:10,border:gr.assignedVehicle&&allPax.length>gr.assignedVehicle.seats?'1px solid rgba(239,68,68,0.4)':'1px solid var(--border2)',marginBottom:'0.75rem'}}>
+                          <div style={{width:40,height:40,borderRadius:'50%',overflow:'hidden',background:'var(--black4)',border:'2px solid rgba(141,198,63,0.3)',flexShrink:0}}>
+                            {gr.assignedVehicle&&DRIVER_IMAGES[gr.assignedVehicle.driver]?<img src={DRIVER_IMAGES[gr.assignedVehicle.driver]} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span style={{fontSize:'1.2rem',display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>🚗</span>}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,color:'var(--text)',fontSize:14}}>{gr.assignedVehicle?.name||'No vehicle available'}</div>
+                            <div style={{fontSize:11,color:'var(--lime)',fontFamily:'monospace'}}>{gr.assignedVehicle?.plate}</div>
+                            <div style={{fontSize:11,color:'var(--text3)'}}>{gr.assignedVehicle?.driver} · {gr.assignedVehicle?.seats} seats · {allPax.length} needed{gr.assignedVehicle?.isRental?' · 🔖 Rental':' · 🏢 Company'}</div>
+                          </div>
+                          {/* 차량 교체 드롭다운 */}
+                          <select onChange={e=>{
+                            const sel=vehicles.find(v=>v.id===e.target.value);
+                            if(sel){setArrangeResult(prev=>prev.map((r,i)=>i===gi?{...r,assignedVehicle:sel}:r));}
+                          }} value={gr.assignedVehicle?.id||''} style={{padding:'6px 10px',borderRadius:7,fontSize:12,minWidth:130}}>
+                            <option value="">-- {t[lang].reassign} --</option>
+                            {vehicles.filter(v=>v.isActive&&v.driverActive).map(v=>(
+                              <option key={v.id} value={v.id}>{v.name} ({v.seats}🪑) {v.isRental?'[R]':''}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* 탑승자 */}
+                        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                          {allPax.map((p,pi)=>(
+                            <span key={pi} style={{padding:'3px 10px',background:'var(--lime-bg2)',borderRadius:20,fontSize:12,fontWeight:600,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.2)'}}>{formatPassenger(p)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* --- Vehicles 탭 --- */}
+          {adminSubTab==='vehicles'&&(
+            <>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+                <h3 style={{fontWeight:700,color:'var(--text)'}}>🚗 {t[lang].vehicles}</h3>
+                <button onClick={()=>{setEditingVehicle(null);setShowVehicleModal(true);}} className="btn-lime" style={{padding:'7px 16px',borderRadius:8,fontSize:13}}>
+                  {t[lang].addVehicle}
+                </button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'1rem'}}>
+                {vehicles.map(v=>(
+                  <div key={v.id} className="card" style={{padding:'1.25rem',opacity:v.isActive&&v.driverActive?1:0.7}}>
+                    <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:'1rem'}}>
+                      <div style={{width:52,height:52,borderRadius:'50%',overflow:'hidden',background:'var(--black4)',border:'2px solid var(--border2)',flexShrink:0}}>
+                        {DRIVER_IMAGES[v.driver]?<img src={DRIVER_IMAGES[v.driver]} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.3rem'}}>👤</div>}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:15,color:'var(--text)'}}>{v.name}</div>
+                        <div style={{fontSize:12,color:'var(--lime)',fontFamily:'monospace'}}>{v.plate}</div>
+                        <div style={{fontSize:11,color:'var(--text3)'}}>{v.driver} · {v.seats} seats · {v.isRental?'🔖 Rental':'🏢 Company'}</div>
+                      </div>
+                    </div>
+                    {/* 토글 */}
+                    <div style={{display:'flex',gap:8,marginBottom:'0.75rem'}}>
+                      <button onClick={()=>handleToggle(v.id,'isActive',!v.isActive)} className={'toggle-btn '+(v.isActive?'toggle-on':'toggle-off')}>
+                        🚗 {v.isActive?t[lang].vehicleActive:'Vehicle OFF'}
+                      </button>
+                      <button onClick={()=>handleToggle(v.id,'driverActive',!v.driverActive)} className={'toggle-btn '+(v.driverActive?'toggle-on':'toggle-off')}>
+                        👤 {v.driverActive?t[lang].driverAvailable:'Driver OFF'}
+                      </button>
+                    </div>
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>{setEditingVehicle(v);setShowVehicleModal(true);}} style={{flex:1,padding:'6px',background:'var(--black3)',color:'var(--text2)',borderRadius:7,border:'1px solid var(--border2)',fontWeight:600,fontSize:11}}>
+                        ✏️ Edit
+                      </button>
+                      <button onClick={()=>handleDeleteVehicle(v.id)} style={{padding:'6px 10px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:7,border:'1px solid rgba(239,68,68,0.3)',fontWeight:600,fontSize:11}}>
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 전역 로딩 오버레이 */}
+      {globalLoading&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:99,backdropFilter:'blur(2px)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'var(--black2)',border:'1px solid var(--border)',borderRadius:16,padding:'1.5rem 2rem',display:'flex',flexDirection:'column',alignItems:'center',gap:12,boxShadow:'0 20px 60px rgba(0,0,0,0.6)'}}>
+            <div className="spinner"></div>
+            <p style={{color:'var(--lime)',fontWeight:600,fontSize:13}}>Processing...</p>
+          </div>
+        </div>
+      )}
+
+      {/* ======= 예약 모달 ======= */}
+      {showModal&&(
+        <div className="modal-overlay">
+          <div className="modal-box fade-in" style={{maxWidth:560,maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{padding:'1rem 1.25rem',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'var(--black2)',zIndex:1}}>
+              <div>
+                <h2 style={{fontSize:'1rem',fontWeight:700,color:'var(--text)'}}>{t[lang].newBooking}</h2>
+                {selectedDate&&<p style={{fontSize:11,color:'var(--lime)',marginTop:2}}>📅 {selectedDate}</p>}
+              </div>
+              <button onClick={()=>{setShowModal(false);setSelEmps([]);setDestinations(['']);setSelectedDate(null);}} style={{background:'var(--black3)',border:'1px solid var(--border2)',width:30,height:30,borderRadius:7,color:'var(--text2)'}}>✕</button>
+            </div>
+            <form onSubmit={handleSubmit} style={{padding:'1.25rem',display:'flex',flexDirection:'column',gap:'0.875rem'}}>
+              {selectedDate&&(()=>{
+                const dayBookings=bookings.filter(b=>b.status!=='rejected'&&b.startDate&&b.startDate.includes(selectedDate));
+                const groups=getDisplayGroups(dayBookings);
+                if(groups.length===0)return null;
+                return(
+                  <div style={{padding:'10px 12px',background:'rgba(96,165,250,0.08)',borderRadius:8,border:'1px solid rgba(96,165,250,0.25)'}}>
+                    <div style={{fontSize:11,fontWeight:600,color:'var(--blue)',marginBottom:6}}>💡 Existing bookings on {selectedDate}</div>
+                    {groups.map((group,gi)=>{
+                      const rep=group[0];
+                      const allPax=group.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean);
+                      return(
+                        <div key={gi} style={{fontSize:12,color:'var(--text2)',marginBottom:3,padding:'5px 8px',background:'var(--black3)',borderRadius:6}}>
+                          📍 {rep.destinations} · {fmtDate(rep.startDate)} · {allPax.length} pax
+                          <span style={{marginLeft:6,fontSize:11,color:'var(--blue)'}}>← Same route? Select same time to auto-merge!</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{t[lang].purpose} *</label>
+                <input type="text" name="purpose" required style={{width:'100%',padding:'10px 12px'}} placeholder={t[lang].purposePlaceholder}/>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>
+                  {t[lang].passengers} · {selEmps.length} {t[lang].selected}
+                </label>
+                <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} style={{width:'100%',padding:'10px 12px',marginBottom:6}} placeholder={t[lang].searchEmployee}/>
+                {selEmps.length>0&&(
+                  <div style={{marginBottom:6,padding:'8px 10px',background:'var(--lime-bg)',borderRadius:7,border:'1px solid rgba(141,198,63,0.2)',display:'flex',flexWrap:'wrap',gap:5}}>
+                    {selEmps.map(emp=>(
+                      <span key={emp.empNo} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',background:'var(--black3)',borderRadius:5,fontSize:12,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.25)',fontWeight:500}}>
+                        {emp.nameEn}
+                        <button type="button" onClick={()=>setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo))} style={{background:'transparent',border:'none',color:'#EF4444',fontSize:13,padding:0}}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div style={{maxHeight:160,overflow:'auto',border:'1px solid var(--border2)',borderRadius:8}}>
+                  {filteredEmps.map(emp=>(
+                    <label key={emp.empNo} style={{display:'flex',alignItems:'center',padding:'9px 12px',borderBottom:'1px solid var(--border)',cursor:'pointer',background:selEmps.some(e=>e.empNo===emp.empNo)?'var(--lime-bg)':'transparent'}}>
+                      <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{if(e.target.checked)setSelEmps([...selEmps,emp]);else setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo));}} style={{marginRight:9,accentColor:'var(--lime)',width:14,height:14}}/>
+                      <div>
+                        <div style={{fontWeight:500,fontSize:13,color:'var(--text)'}}>{emp.nameEn}</div>
+                        <div style={{fontSize:12,color:'var(--text2)',fontWeight:500}}>{emp.empNo}{emp.position?" · "+emp.position:""}{emp.department?" · "+emp.department:""}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{t[lang].route}</label>
+                <div style={{marginBottom:7,padding:'10px 12px',background:'rgba(59,130,246,0.08)',borderRadius:8,border:'1px solid rgba(59,130,246,0.2)'}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'#60A5FA',marginBottom:6,textTransform:'uppercase',letterSpacing:'.5px'}}>📍 {t[lang].departure}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    {DEPARTURES.map(p=>(
+                      <button key={p.id} type="button" onClick={()=>{const nd=[...destinations];nd[0]=p.name;setDestinations(nd);}} style={{padding:'4px 10px',borderRadius:6,border:'1px solid',fontSize:11,fontWeight:500,borderColor:destinations[0]===p.name?'#60A5FA':'rgba(59,130,246,0.3)',background:destinations[0]===p.name?'rgba(59,130,246,0.25)':'transparent',color:destinations[0]===p.name?'white':'#60A5FA'}}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{marginBottom:7,padding:'10px 12px',background:'var(--lime-bg)',borderRadius:8,border:'1px solid rgba(141,198,63,0.2)'}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'var(--lime)',marginBottom:6,textTransform:'uppercase',letterSpacing:'.5px'}}>🏭 {t[lang].quickSelect}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    {DESTS.map(p=>(
+                      <button key={p.id} type="button" onClick={()=>{if(!destinations.includes(p.name))setDestinations([...destinations.filter(d=>d.trim()),p.name]);}} style={{padding:'4px 10px',borderRadius:6,border:'1px solid rgba(141,198,63,0.3)',fontSize:11,fontWeight:500,background:'transparent',color:'var(--lime)'}}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {destinations.map((d,i)=>(
+                  <div key={i} style={{display:'flex',gap:6,marginBottom:5}}>
+                    <input type="text" value={d} onChange={e=>{const nd=[...destinations];nd[i]=e.target.value;setDestinations(nd);}} style={{flex:1,padding:'9px 12px'}} placeholder={i===0?t[lang].departure:'Stop '+i}/>
+                    {destinations.length>1&&<button type="button" onClick={()=>setDestinations(destinations.filter((_,idx)=>idx!==i))} style={{padding:'0 11px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:7,border:'1px solid rgba(239,68,68,0.2)'}}>✕</button>}
+                  </div>
+                ))}
+                <button type="button" onClick={()=>setDestinations([...destinations,''])} style={{width:'100%',padding:'7px',border:'1px dashed var(--border2)',borderRadius:7,background:'transparent',color:'var(--text3)',fontSize:12}}>
+                  {t[lang].addStop}
+                </button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <DateTimePicker name="startDate" label={t[lang].startTime+' *'} defaultDate={selectedDate||''} defaultTime="08:30"/>
+                <DateTimePicker name="endDate" label={t[lang].endTime+' *'} defaultDate={selectedDate||''} defaultTime="18:00"/>
+              </div>
+              <div style={{display:'flex',gap:8,paddingTop:4}}>
+                <button type="button" onClick={()=>{setShowModal(false);setSelEmps([]);setDestinations(['']);setSelectedDate(null);}} style={{flex:1,padding:'11px',background:'var(--black3)',borderRadius:9,border:'1px solid var(--border2)',fontWeight:600,color:'var(--text2)',fontSize:13}}>
+                  {t[lang].cancel}
+                </button>
+                <button type="submit" disabled={submitting||selEmps.length===0} className="btn-lime" style={{flex:2,padding:'11px',borderRadius:9,fontSize:13,opacity:selEmps.length===0?0.4:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                  {submitting?(
+                    <><div style={{width:14,height:14,border:'2px solid rgba(0,0,0,0.3)',borderTopColor:'var(--black)',borderRadius:'50%',animation:'spin .6s linear infinite'}}></div>Submitting...</>
+                  ):t[lang].submit.replace('{count}',selEmps.length)}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======= 예약 수정 모달 ======= */}
+      {editingBooking&&(
+        <div className="modal-overlay">
+          <div className="modal-box fade-in" style={{maxWidth:560,maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{padding:'1rem 1.25rem',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'var(--black2)',zIndex:1}}>
+              <div>
+                <h2 style={{fontSize:'1rem',fontWeight:700,color:'var(--text)'}}>✏️ Edit Booking</h2>
+                <p style={{fontSize:11,color:'var(--lime)',marginTop:2}}>ID: {editingBooking.id}</p>
+              </div>
+              <button onClick={()=>{setEditingBooking(null);setSelEmps([]);setDestinations(['']);}} style={{background:'var(--black3)',border:'1px solid var(--border2)',width:30,height:30,borderRadius:7,color:'var(--text2)'}}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateBooking} style={{padding:'1.25rem',display:'flex',flexDirection:'column',gap:'0.875rem'}}>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{t[lang].purpose} *</label>
+                <input type="text" name="purpose" required defaultValue={editingBooking.purpose} style={{width:'100%',padding:'10px 12px'}}/>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>
+                  {t[lang].passengers} · {selEmps.length} {t[lang].selected}
+                </label>
+                <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} style={{width:'100%',padding:'10px 12px',marginBottom:6}} placeholder={t[lang].searchEmployee}/>
+                {selEmps.length>0&&(
+                  <div style={{marginBottom:6,padding:'8px 10px',background:'var(--lime-bg)',borderRadius:7,border:'1px solid rgba(141,198,63,0.2)',display:'flex',flexWrap:'wrap',gap:5}}>
+                    {selEmps.map(emp=>(
+                      <span key={emp.empNo} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 8px',background:'var(--black3)',borderRadius:5,fontSize:12,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.25)',fontWeight:500}}>
+                        {emp.nameEn}
+                        <button type="button" onClick={()=>setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo))} style={{background:'transparent',border:'none',color:'#EF4444',fontSize:13,padding:0}}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div style={{maxHeight:130,overflow:'auto',border:'1px solid var(--border2)',borderRadius:8}}>
+                  {filteredEmps.map(emp=>(
+                    <label key={emp.empNo} style={{display:'flex',alignItems:'center',padding:'8px 12px',borderBottom:'1px solid var(--border)',cursor:'pointer',background:selEmps.some(e=>e.empNo===emp.empNo)?'var(--lime-bg)':'transparent'}}>
+                      <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{if(e.target.checked)setSelEmps([...selEmps,emp]);else setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo));}} style={{marginRight:9,accentColor:'var(--lime)',width:14,height:14}}/>
+                      <div>
+                        <div style={{fontWeight:500,fontSize:13,color:'var(--text)'}}>{emp.nameEn}</div>
+                        <div style={{fontSize:12,color:'var(--text2)',fontWeight:500}}>{emp.empNo}{emp.position?' · '+emp.position:''}{emp.department?' · '+emp.department:''}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{t[lang].route}</label>
+                {destinations.map((d,i)=>(
+                  <div key={i} style={{display:'flex',gap:6,marginBottom:5}}>
+                    <input type="text" value={d} onChange={e=>{const nd=[...destinations];nd[i]=e.target.value;setDestinations(nd);}} style={{flex:1,padding:'9px 12px'}} placeholder={i===0?t[lang].departure:'Stop '+i}/>
+                    {destinations.length>1&&<button type="button" onClick={()=>setDestinations(destinations.filter((_,idx)=>idx!==i))} style={{padding:'0 11px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:7,border:'1px solid rgba(239,68,68,0.2)'}}>✕</button>}
+                  </div>
+                ))}
+                <button type="button" onClick={()=>setDestinations([...destinations,''])} style={{width:'100%',padding:'7px',border:'1px dashed var(--border2)',borderRadius:7,background:'transparent',color:'var(--text3)',fontSize:12}}>{t[lang].addStop}</button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <DateTimePicker name="startDate" label={t[lang].startTime+' *'} defaultDate={parseVNDate(editingBooking.startDate).date} defaultTime={parseVNDate(editingBooking.startDate).time||'08:00'}/>
+                <DateTimePicker name="endDate" label={t[lang].endTime+' *'} defaultDate={parseVNDate(editingBooking.endDate).date} defaultTime={parseVNDate(editingBooking.endDate).time||'18:00'}/>
+              </div>
+              <div style={{display:'flex',gap:8,paddingTop:4}}>
+                <button type="button" onClick={()=>{setEditingBooking(null);setSelEmps([]);setDestinations(['']);}} style={{flex:1,padding:'11px',background:'var(--black3)',borderRadius:9,border:'1px solid var(--border2)',fontWeight:600,color:'var(--text2)',fontSize:13}}>{t[lang].cancel}</button>
+                <button type="submit" className="btn-lime" style={{flex:2,padding:'11px',borderRadius:9,fontSize:13}}>💾 Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======= 차량 추가/수정 모달 ======= */}
+      {showVehicleModal&&(
+        <div className="modal-overlay">
+          <div className="modal-box fade-in" style={{maxWidth:440,maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{padding:'1rem 1.25rem',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <h2 style={{fontWeight:700,color:'var(--text)',fontSize:'1rem'}}>{editingVehicle?t[lang].editVehicle:t[lang].addVehicle}</h2>
+              <button onClick={()=>{setShowVehicleModal(false);setEditingVehicle(null);}} style={{background:'var(--black3)',border:'1px solid var(--border2)',width:30,height:30,borderRadius:7,color:'var(--text2)'}}>✕</button>
+            </div>
+            <form onSubmit={handleSaveVehicle} style={{padding:'1.25rem',display:'flex',flexDirection:'column',gap:'0.875rem'}}>
+              {[['name',t[lang].vehicle,editingVehicle?.name||''],['plate',t[lang].plate,editingVehicle?.plate||''],['seats',t[lang].seats,editingVehicle?.seats||6],['driver',t[lang].driver,editingVehicle?.driver||'']].map(([n,l,dv])=>(
+                <div key={n}>
+                  <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{l}</label>
+                  <input type={n==='seats'?'number':'text'} name={n} required defaultValue={dv} style={{width:'100%',padding:'10px 12px'}}/>
+                </div>
+              ))}
+              <div>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>Type</label>
+                <select name="isRental" defaultValue={editingVehicle?.isRental?'true':'false'} style={{width:'100%',padding:'10px 12px'}}>
+                  <option value="false">🏢 {t[lang].company}</option>
+                  <option value="true">🔖 {t[lang].rental}</option>
+                </select>
+              </div>
+              <div style={{display:'flex',gap:8,paddingTop:4}}>
+                <button type="button" onClick={()=>{setShowVehicleModal(false);setEditingVehicle(null);}} style={{flex:1,padding:'11px',background:'var(--black3)',borderRadius:9,border:'1px solid var(--border2)',fontWeight:600,color:'var(--text2)',fontSize:13}}>{t[lang].cancel}</button>
+                <button type="submit" className="btn-lime" style={{flex:2,padding:'11px',borderRadius:9,fontSize:13}}>{t[lang].save}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======= 개별 예약 상세 팝업 ======= */}
+      {selectedBooking&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:60,backdropFilter:'blur(6px)'}} onClick={()=>setSelectedBooking(null)}>
+          <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'var(--black2)',border:'1px solid var(--border)',borderRadius:20,width:'100%',maxWidth:460,padding:'2rem',boxShadow:'0 30px 80px rgba(0,0,0,0.7)',animation:'popIn .2s ease'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem'}}>
+              <span className={'tag tag-'+selectedBooking.status} style={{fontSize:13,padding:'5px 14px'}}>
+                {selectedBooking.status==='pending'?'⏳ '+t[lang].pending:selectedBooking.status==='approved'?'✅ '+t[lang].approved:'❌ '+t[lang].rejected}
+              </span>
+              <button onClick={()=>setSelectedBooking(null)} style={{background:'var(--black3)',border:'1px solid var(--border2)',width:32,height:32,borderRadius:8,color:'var(--text2)',fontSize:'1rem'}}>✕</button>
+            </div>
+            <div style={{marginBottom:'1rem',padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Vehicle</div>
+              <div style={{fontSize:18,fontWeight:800,color:'var(--lime)'}}>🚗 {selectedBooking.vehicle||'Pending Assignment'}</div>
+            </div>
+            <div style={{marginBottom:'1rem',padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Purpose</div>
+              <div style={{fontSize:16,fontWeight:600,color:'var(--text)'}}>{selectedBooking.purpose}</div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:'1rem'}}>
+              <div style={{padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
+                <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Departure</div>
+                <div style={{fontSize:14,fontWeight:600,color:'var(--text)'}}>{fmtDate(selectedBooking.startDate)}</div>
+              </div>
+              <div style={{padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
+                <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Return</div>
+                <div style={{fontSize:14,fontWeight:600,color:'var(--text)'}}>{fmtDate(selectedBooking.endDate)}</div>
+              </div>
+            </div>
+            <div style={{marginBottom:'1rem',padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Route</div>
+              <div style={{fontSize:14,fontWeight:600,color:'var(--text)'}}>{selectedBooking.destinations}</div>
+            </div>
+            <div style={{marginBottom:'1.5rem',padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px'}}>Passengers</div>
+                <div style={{fontSize:12,color:'var(--lime)',fontWeight:700}}>
+                  {selectedBooking.passengers?.split(', ').length || 0} total
+                </div>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                {selectedBooking.passengers?.split(', ').map((p,i)=>(
+                  <span key={i} style={{padding:'4px 12px',background:'var(--lime-bg2)',borderRadius:20,fontSize:14,fontWeight:600,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.25)'}}>{p}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{textAlign:'right',fontSize:12,color:'var(--text3)'}}>
+              Requested by <span style={{color:'var(--text)',fontWeight:600}}>{(()=>{
+                const emp=employees.find(e=>e.empNo===selectedBooking.createdBy);
+                return emp?emp.nameEn+' ('+emp.empNo+')':selectedBooking.createdBy;
+              })()}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======= 그룹 상세 팝업 ======= */}
+      {selectedGroup&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:60,backdropFilter:'blur(6px)'}} onClick={()=>setSelectedGroup(null)}>
+          <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'var(--black2)',border:'1px solid rgba(141,198,63,0.3)',borderRadius:20,width:'100%',maxWidth:520,padding:'2rem',boxShadow:'0 30px 80px rgba(0,0,0,0.7)',animation:'popIn .2s ease',maxHeight:'90vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem'}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:800,color:'var(--lime)'}}>🔀 Merged Booking</div>
+                <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>{selectedGroup.length} bookings · Same route & time</div>
+              </div>
+              <button onClick={()=>setSelectedGroup(null)} style={{background:'var(--black3)',border:'1px solid var(--border2)',width:32,height:32,borderRadius:8,color:'var(--text2)',fontSize:'1rem'}}>✕</button>
+            </div>
+            <div style={{marginBottom:'1rem',padding:'0.875rem 1rem',background:'var(--black3)',borderRadius:10,border:'1px solid var(--border2)'}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Route</div>
+              <div style={{fontSize:14,fontWeight:600,color:'var(--text)'}}>{selectedGroup[0].destinations}</div>
+            </div>
+            <div style={{fontSize:11,color:'var(--text3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'.5px',fontWeight:600}}>Individual Bookings</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:'1rem'}}>
+              {selectedGroup.map((b,i)=>(
+                <div key={b.id} style={{padding:'0.875rem 1rem',background:'var(--black3)',borderRadius:10,border:'1px solid var(--border2)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                    <div style={{fontWeight:600,fontSize:14,color:'var(--text)'}}>{b.purpose}</div>
+                    <span className={'tag tag-'+b.status} style={{fontSize:10}}>{b.status==='pending'?'⏳ Pending':b.status==='approved'?'✅ Approved':'❌ Rejected'}</span>
+                  </div>
+                  <div style={{fontSize:12,color:'var(--text3)',marginBottom:4}}>📅 {fmtDate(b.startDate)} → {fmtDate(b.endDate)}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                    {b.passengers?.split(', ').map((p,pi)=>(
+                      <span key={pi} style={{padding:'3px 10px',background:'var(--lime-bg2)',borderRadius:20,fontSize:12,fontWeight:600,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.2)'}}>{formatPassenger(p)}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:'0.875rem 1rem',background:'var(--black3)',borderRadius:10,border:'1px solid var(--border2)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px'}}>All Passengers</div>
+                <div style={{fontSize:12,color:'var(--lime)',fontWeight:700}}>
+                  {selectedGroup.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean).length} total
+                </div>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                {selectedGroup.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean).map((p,i)=>(
+                  <span key={i} style={{padding:'4px 12px',background:'var(--lime-bg2)',borderRadius:20,fontSize:14,fontWeight:600,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.25)'}}>{formatPassenger(p)}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
