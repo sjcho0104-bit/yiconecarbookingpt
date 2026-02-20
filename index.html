@@ -62,26 +62,69 @@ button{font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem}
 .modal-box{background:var(--black2);border:1px solid var(--border);border-radius:16px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 25px 80px rgba(0,0,0,0.7)}
 
-/* 모바일 최적화 */
+/* ==================== 모바일 최적화 ==================== */
 @media (max-width: 768px) {
+  /* 기본 폰트 크기 */
   body {
-    font-size: 14px !important;
+    font-size: 14px;
   }
   
-  /* 헤더 간소화 */
+  /* 헤더 - 로고 작게, Sign Out만 표시 */
   .header-buttons {
-    justify-content: center !important;
-    gap: 8px !important;
+    gap: 6px !important;
   }
   
-  .header-buttons > button:not(:nth-child(1)):not(:nth-child(2)) {
+  .header-buttons button {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+  
+  /* 언어/테마 버튼 숨기기 */
+  .header-buttons button:not(:first-child):not(:last-child) {
     display: none !important;
+  }
+  
+  /* 메인 래퍼 패딩 줄이기 */
+  .main-wrap {
+    padding: 0.75rem !important;
+  }
+  
+  /* 드라이버 카드 1열 */
+  body .card {
+    font-size: 13px !important;
+  }
+  
+  /* Calendar - 2열 레이아웃을 세로로 */
+  [style*="flex:1.5"] {
+    flex: 1 !important;
+    width: 100% !important;
+  }
+  
+  [style*="display:flex"][style*="gap:1.25rem"] > div {
+    width: 100% !important;
+    flex: 1 !important;
+  }
+  
+  /* 캘린더 날짜 칸 크기 */
+  [style*="minHeight:80px"] {
+    min-height: 60px !important;
+    font-size: 13px !important;
+  }
+  
+  /* 차량 아이콘 */
+  [style*="fontSize:11px"][style*="🚗"] {
+    font-size: 16px !important;
+  }
+  
+  /* Booking Status 카드 */
+  .card[style*="padding:1rem"] {
+    padding: 0.75rem !important;
   }
   
   /* 버튼 터치 영역 */
   button {
     min-height: 44px !important;
-    font-size: 14px !important;
+    padding: 10px 14px !important;
   }
   
   /* Input 자동 줌 방지 */
@@ -90,11 +133,36 @@ button{font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
   }
   
   /* 모달 */
-  .modal-backdrop > div {
+  [style*="width:90%"][style*="maxWidth:700"] {
     width: 95% !important;
     max-width: 95% !important;
-    max-height: 90vh !important;
+    max-height: 85vh !important;
     overflow-y: auto !important;
+  }
+  
+  /* Management 탭 버튼 */
+  [style*="display:flex"][style*="gap:6px"] button {
+    flex: 1 1 45% !important;
+    font-size: 12px !important;
+  }
+  
+  /* 테이블 스크롤 */
+  table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Quick Stats 1열 */
+  [style*="gridTemplateColumns:'1fr 1fr'"][style*="gap:8"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 태블릿 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-wrap {
+    padding: 1rem !important;
   }
 }
 
@@ -386,9 +454,6 @@ const App=()=>{
   const [excelEndDate,setExcelEndDate]=useState('');
   const [bookingSearch,setBookingSearch]=useState('');
   const [theme,setTheme]=useState(localStorage.getItem('yic-theme')||'dark');
-  const [isMobile,setIsMobile]=useState(window.innerWidth<=768);
-  const [weekStart,setWeekStart]=useState(new Date());
-  const [selectedWeekDay,setSelectedWeekDay]=useState(null);
   const [selectedBooking,setSelectedBooking]=useState(null);
   const [selectedGroup,setSelectedGroup]=useState(null);
   const [similarBookings,setSimilarBookings]=useState([]);
@@ -410,40 +475,6 @@ const App=()=>{
     document.body.className=theme==='light'?'light-mode':'';
   },[theme]);
 
-  useEffect(()=>{
-    const handleResize=()=>setIsMobile(window.innerWidth<=768);
-    window.addEventListener('resize',handleResize);
-    return ()=>window.removeEventListener('resize',handleResize);
-  },[]);
-
-
-  // 주의 시작일 계산 (일요일 기준)
-  const getWeekStart=(date)=>{
-    const d=new Date(date);
-    const day=d.getDay();
-    d.setDate(d.getDate()-day);
-    d.setHours(0,0,0,0);
-    return d;
-  };
-
-  // 주간 날짜 배열
-  const getWeekDays=(start)=>{
-    const days=[];
-    for(let i=0;i<7;i++){
-      const d=new Date(start);
-      d.setDate(start.getDate()+i);
-      days.push(d);
-    }
-    return days;
-  };
-
-  // 몇 주차인지
-  const getWeekNumber=(date)=>{
-    const d=new Date(date);
-    const firstDay=new Date(d.getFullYear(),d.getMonth(),1);
-    const days=Math.floor((d-firstDay)/(24*60*60*1000));
-    return Math.ceil((days+firstDay.getDay()+1)/7);
-  };
   const toggleTheme=()=>{
     const newTheme=theme==='dark'?'light':'dark';
     setTheme(newTheme);
