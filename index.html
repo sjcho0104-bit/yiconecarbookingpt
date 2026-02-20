@@ -64,98 +64,37 @@ button{font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
 
 /* 모바일 최적화 */
 @media (max-width: 768px) {
-  /* 헤더 간소화 */
-  .header-buttons {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
-  
-  .header-buttons button {
-    padding: 8px 12px !important;
-    font-size: 12px !important;
-  }
-  
-  /* Calendar 탭 레이아웃 */
-  .calendar-container {
-    flex-direction: column !important;
-    gap: 1rem !important;
-  }
-  
-  .calendar-left, .calendar-right {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  
-  /* 드라이버 카드 1열로 */
-  .driver-cards-grid {
-    grid-template-columns: 1fr !important;
-  }
-  
-  /* Booking Status 카드 */
-  .booking-card {
-    padding: 0.75rem !important;
-    font-size: 12px !important;
-  }
-  
-  /* 캘린더 날짜 크기 */
-  .calendar-day {
-    min-height: 60px !important;
+  body {
     font-size: 14px !important;
   }
   
-  /* 모달 크기 조정 */
-  .modal-content {
+  /* 헤더 간소화 */
+  .header-buttons {
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+  
+  .header-buttons > button:not(:nth-child(1)):not(:nth-child(2)) {
+    display: none !important;
+  }
+  
+  /* 버튼 터치 영역 */
+  button {
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+  
+  /* Input 자동 줌 방지 */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  
+  /* 모달 */
+  .modal-backdrop > div {
     width: 95% !important;
     max-width: 95% !important;
     max-height: 90vh !important;
     overflow-y: auto !important;
-  }
-  
-  /* 테이블 가로 스크롤 */
-  .table-container {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  
-  /* Management 탭 버튼 */
-  .admin-subtabs {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
-  
-  .admin-subtabs button {
-    flex: 1 1 45% !important;
-    min-width: 120px !important;
-  }
-  
-  /* Quick Stats 카드 */
-  .quick-stats {
-    grid-template-columns: 1fr !important;
-  }
-  
-  /* 검색 input */
-  input[type="text"], input[type="datetime-local"], select {
-    font-size: 16px !important; /* iOS 자동 줌 방지 */
-  }
-  
-  /* 버튼 터치 영역 */
-  button, a {
-    min-height: 44px !important; /* iOS 터치 가이드라인 */
-  }
-}
-
-/* 태블릿 (768px ~ 1024px) */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .calendar-container {
-    gap: 1rem !important;
-  }
-  
-  .calendar-left {
-    flex: 1.2 !important;
-  }
-  
-  .calendar-right {
-    flex: 0.8 !important;
   }
 }
 
@@ -447,6 +386,9 @@ const App=()=>{
   const [excelEndDate,setExcelEndDate]=useState('');
   const [bookingSearch,setBookingSearch]=useState('');
   const [theme,setTheme]=useState(localStorage.getItem('yic-theme')||'dark');
+  const [isMobile,setIsMobile]=useState(window.innerWidth<=768);
+  const [weekStart,setWeekStart]=useState(new Date());
+  const [selectedWeekDay,setSelectedWeekDay]=useState(null);
   const [selectedBooking,setSelectedBooking]=useState(null);
   const [selectedGroup,setSelectedGroup]=useState(null);
   const [similarBookings,setSimilarBookings]=useState([]);
@@ -468,6 +410,40 @@ const App=()=>{
     document.body.className=theme==='light'?'light-mode':'';
   },[theme]);
 
+  useEffect(()=>{
+    const handleResize=()=>setIsMobile(window.innerWidth<=768);
+    window.addEventListener('resize',handleResize);
+    return ()=>window.removeEventListener('resize',handleResize);
+  },[]);
+
+
+  // 주의 시작일 계산 (일요일 기준)
+  const getWeekStart=(date)=>{
+    const d=new Date(date);
+    const day=d.getDay();
+    d.setDate(d.getDate()-day);
+    d.setHours(0,0,0,0);
+    return d;
+  };
+
+  // 주간 날짜 배열
+  const getWeekDays=(start)=>{
+    const days=[];
+    for(let i=0;i<7;i++){
+      const d=new Date(start);
+      d.setDate(start.getDate()+i);
+      days.push(d);
+    }
+    return days;
+  };
+
+  // 몇 주차인지
+  const getWeekNumber=(date)=>{
+    const d=new Date(date);
+    const firstDay=new Date(d.getFullYear(),d.getMonth(),1);
+    const days=Math.floor((d-firstDay)/(24*60*60*1000));
+    return Math.ceil((days+firstDay.getDay()+1)/7);
+  };
   const toggleTheme=()=>{
     const newTheme=theme==='dark'?'light':'dark';
     setTheme(newTheme);
