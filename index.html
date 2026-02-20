@@ -61,111 +61,6 @@ button{font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
 .toggle-off{background:var(--rejected-bg);border-color:rgba(239,68,68,0.3);color:var(--rejected)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem}
 .modal-box{background:var(--black2);border:1px solid var(--border);border-radius:16px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 25px 80px rgba(0,0,0,0.7)}
-
-/* ==================== 모바일 최적화 ==================== */
-@media (max-width: 768px) {
-  /* 기본 폰트 크기 */
-  body {
-    font-size: 14px;
-  }
-  
-  /* 헤더 - 로고 작게, Sign Out만 표시 */
-  .header-buttons {
-    gap: 6px !important;
-  }
-  
-  .header-buttons button {
-    padding: 6px 10px !important;
-    font-size: 12px !important;
-  }
-  
-  /* 언어/테마 버튼 숨기기 */
-  .header-buttons button:not(:first-child):not(:last-child) {
-    display: none !important;
-  }
-  
-  /* 메인 래퍼 패딩 줄이기 */
-  .main-wrap {
-    padding: 0.75rem !important;
-  }
-  
-  /* 드라이버 카드 1열 */
-  body .card {
-    font-size: 13px !important;
-  }
-  
-  /* Calendar - 2열 레이아웃을 세로로 */
-  [style*="flex:1.5"] {
-    flex: 1 !important;
-    width: 100% !important;
-  }
-  
-  [style*="display:flex"][style*="gap:1.25rem"] > div {
-    width: 100% !important;
-    flex: 1 !important;
-  }
-  
-  /* 캘린더 날짜 칸 크기 */
-  [style*="minHeight:80px"] {
-    min-height: 60px !important;
-    font-size: 13px !important;
-  }
-  
-  /* 차량 아이콘 */
-  [style*="fontSize:11px"][style*="🚗"] {
-    font-size: 16px !important;
-  }
-  
-  /* Booking Status 카드 */
-  .card[style*="padding:1rem"] {
-    padding: 0.75rem !important;
-  }
-  
-  /* 버튼 터치 영역 */
-  button {
-    min-height: 44px !important;
-    padding: 10px 14px !important;
-  }
-  
-  /* Input 자동 줌 방지 */
-  input, select, textarea {
-    font-size: 16px !important;
-  }
-  
-  /* 모달 */
-  [style*="width:90%"][style*="maxWidth:700"] {
-    width: 95% !important;
-    max-width: 95% !important;
-    max-height: 85vh !important;
-    overflow-y: auto !important;
-  }
-  
-  /* Management 탭 버튼 */
-  [style*="display:flex"][style*="gap:6px"] button {
-    flex: 1 1 45% !important;
-    font-size: 12px !important;
-  }
-  
-  /* 테이블 스크롤 */
-  table {
-    display: block !important;
-    overflow-x: auto !important;
-    white-space: nowrap !important;
-  }
-  
-  /* Quick Stats 1열 */
-  [style*="gridTemplateColumns:'1fr 1fr'"][style*="gap:8"] {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-/* 태블릿 */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .main-wrap {
-    padding: 1rem !important;
-  }
-}
-
 </style>
 <style>
 body.light-mode {
@@ -436,6 +331,7 @@ const App=()=>{
   const [showModal,setShowModal]=useState(false);
   const [selEmps,setSelEmps]=useState([]);
   const [destinations,setDestinations]=useState(['']);
+  const [returnLocation,setReturnLocation]=useState('');
   const [searchTerm,setSearchTerm]=useState('');
   const [view,setView]=useState('calendar');
    // bookings | arrange | vehicles
@@ -568,6 +464,7 @@ const App=()=>{
       const r=await api('addBooking',{
         purpose:fd.get('purpose'),
         destinations:destStr,
+        returnLocation:returnLocation.trim()||'',
         startDate,endDate:fd.get('endDate'),
         passengers:selEmps.map(p=>p.nameEn).join(', '),
         createdBy:currentUser.empNo
@@ -600,11 +497,13 @@ const App=()=>{
       id:editingBooking.id,
       purpose:fd.get('purpose'),
       destinations:destinations.filter(d=>d.trim()).join(' → '),
+      returnLocation:returnLocation.trim()||'',
       startDate:fd.get('startDate'),
       endDate:fd.get('endDate'),
       passengers:selEmps.map(p=>p.nameEn).join(', '),
+      status:'pending',
     });
-    setEditingBooking(null);setSelEmps([]);setDestinations(['']);
+    setEditingBooking(null);setSelEmps([]);setDestinations(['']);setReturnLocation('');
     await loadData(false,true);
     setGlobalLoading(false);
   };
@@ -763,9 +662,12 @@ const App=()=>{
   };
 
   // 중복 예약 체크
-  const checkDuplicateBooking=(empName)=>{
+  const checkDuplicateBooking=(empName,checkDate)=>{
+    if(!checkDate)return null;
+    const dateOnly=checkDate.split('T')[0];
     return bookings.find(b=>
       b.status!=='rejected'&&
+      b.startDate&&b.startDate.includes(dateOnly)&&
       b.passengers&&
       b.passengers.toLowerCase().includes(empName.toLowerCase())
     );
@@ -1078,9 +980,9 @@ const App=()=>{
                     <p style={{color:'var(--text)',fontSize:12,marginBottom:4,fontWeight:500,cursor:'pointer'}} onClick={()=>isM?setSelectedGroup(group):setSelectedBooking(rep)}>{rep.purpose}</p>
                     <p style={{fontSize:11,color:'var(--text3)',marginBottom:2}}>📅 {fmtDate(rep.startDate)}</p>
                     <p style={{fontSize:11,color:'var(--text2)',marginBottom:2}}>👥 {isM?allPax.map(formatPassenger).join(', '):rep.passengers?.split(', ').map(formatPassenger).join(', ')} ({isM?allPax.length:rep.passengers?.split(',').length||1} {t[lang].pax})</p>
-                    <p style={{fontSize:11,color:'var(--text3)',marginBottom:6}}>📍 {rep.destinations}</p>
+                    <p style={{fontSize:11,color:'var(--text3)',marginBottom:6}}>📍 {rep.destinations}{rep.returnLocation?' (Return: '+rep.returnLocation+')':''}</p>
                     {/* 본인 예약 수정/취소 버튼 */}
-                    {!isM&&rep.status==='pending'&&isMyBooking(rep,currentUser.empNo)&&(
+                    {!isM&&rep.status!=='rejected'&&isMyBooking(rep,currentUser.empNo)&&(
                       <div style={{display:'flex',gap:6,marginTop:4}}>
                         <button onClick={e=>{
                           e.stopPropagation();
@@ -1088,6 +990,7 @@ const App=()=>{
                           setEditingBooking(rep);
                           setSelEmps(employees.filter(emp=>paxList.includes(emp.nameEn)));
                           setDestinations(rep.destinations?rep.destinations.split(' → '):[rep.destinations||'']);
+                          setReturnLocation(rep.returnLocation||'');
                           setSearchTerm('');
                         }} style={{flex:1,padding:'5px',background:'var(--blue-bg)',color:'var(--blue)',borderRadius:6,border:'1px solid rgba(96,165,250,0.3)',fontSize:11,fontWeight:600}}>
                           ✏️ Edit
@@ -1260,7 +1163,7 @@ const App=()=>{
                         👥 {b.passengers?.split(', ').map(formatPassenger).join(', ')}
                         <span style={{marginLeft:8,color:'var(--lime)',fontWeight:700}}>({b.passengers?.split(', ').length || 0} total)</span>
                       </p>
-                      <p style={{fontSize:12,color:'var(--text2)',marginBottom:2}}>📍 {b.destinations}</p>
+                      <p style={{fontSize:12,color:'var(--text2)',marginBottom:2}}>📍 {b.destinations}{b.returnLocation?' (Return: '+b.returnLocation+')':''}</p>
                       <p style={{fontSize:11,color:'var(--text)'}}>by {(()=>{
                         const emp=employees.find(e=>e.empNo===b.createdBy);
                         return emp?emp.nameEn+' ('+emp.empNo+')':b.createdBy;
@@ -1278,6 +1181,7 @@ const App=()=>{
   setEditingBooking(b);
   setSelEmps(employees.filter(e=>paxList.includes(e.nameEn)));
   setDestinations(b.destinations?b.destinations.split(' → '):[b.destinations||'']);
+  setReturnLocation(b.returnLocation||'');
   setSearchTerm('');
 }} style={{padding:'6px 10px',background:'var(--blue-bg)',color:'var(--blue)',borderRadius:7,border:'1px solid rgba(96,165,250,0.3)',fontWeight:600,fontSize:11}}>✏️ Edit</button>
                       <button onClick={()=>handleDelete(b.id)} style={{padding:'6px 10px',background:'var(--black3)',color:'var(--text3)',borderRadius:7,border:'1px solid var(--border2)',fontWeight:600,fontSize:11}}>🗑️ {t[lang].delete}</button>
@@ -1501,7 +1405,7 @@ const App=()=>{
                     <label key={emp.empNo} style={{display:'flex',alignItems:'center',padding:'9px 12px',borderBottom:'1px solid var(--border)',cursor:'pointer',background:selEmps.some(e=>e.empNo===emp.empNo)?'var(--lime-bg)':'transparent'}}>
                       <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{
                         if(e.target.checked){
-                          const dup=checkDuplicateBooking(emp.nameEn);
+                          const formDate=document.querySelector('input[name="startDate"]')?.value;const dup=checkDuplicateBooking(emp.nameEn,formDate);
                           if(dup&&!confirm('⚠️ '+emp.nameEn+' is already in another booking:\n\n📅 '+dup.startDate?.split('T')[0]+' '+dup.startDate?.split('T')[1]+'\n📍 '+dup.destinations+'\n👥 '+dup.passengers+'\n\nContinue anyway?'))return;
                           setSelEmps([...selEmps,emp]);
                         }else{
@@ -1547,6 +1451,16 @@ const App=()=>{
                 <button type="button" onClick={()=>setDestinations([...destinations,''])} style={{width:'100%',padding:'7px',border:'1px dashed var(--border2)',borderRadius:7,background:'transparent',color:'var(--text3)',fontSize:12}}>
                   {t[lang].addStop}
                 </button>
+                {/* Return Location */}
+                <div style={{marginTop:'0.75rem'}}>
+                  <label style={{display:'block',fontSize:12,fontWeight:600,color:'var(--text2)',marginBottom:5}}>Return Location *</label>
+                  <div style={{display:'flex',gap:4,marginBottom:5,flexWrap:'wrap'}}>
+                    {['IDMC Toyota Building','Vinfast Building'].map(loc=>(
+                      <button key={loc} type="button" onClick={()=>setReturnLocation(loc)} style={{padding:'5px 10px',fontSize:11,borderRadius:6,background:returnLocation===loc?'var(--lime-bg)':'var(--black3)',border:'1px solid',borderColor:returnLocation===loc?'var(--lime)':'var(--border2)',color:returnLocation===loc?'var(--lime)':'var(--text2)',fontWeight:600}}>{loc}</button>
+                    ))}
+                  </div>
+                  <input type="text" value={returnLocation} onChange={e=>setReturnLocation(e.target.value)} style={{width:'100%',padding:'9px 12px'}} placeholder="Or type custom location" required/>
+                </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                 <DateTimePicker name="startDate" label={t[lang].startTime+' *'} defaultDate={selectedDate||''} defaultTime="08:30"/>
@@ -1603,7 +1517,7 @@ const App=()=>{
                     <label key={emp.empNo} style={{display:'flex',alignItems:'center',padding:'8px 12px',borderBottom:'1px solid var(--border)',cursor:'pointer',background:selEmps.some(e=>e.empNo===emp.empNo)?'var(--lime-bg)':'transparent'}}>
                       <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{
                         if(e.target.checked){
-                          const dup=checkDuplicateBooking(emp.nameEn);
+                          const formDate=document.querySelector('input[name="startDate"]')?.value;const dup=checkDuplicateBooking(emp.nameEn,formDate);
                           if(dup&&!confirm('⚠️ '+emp.nameEn+' is already in another booking:\n\n📅 '+dup.startDate?.split('T')[0]+' '+dup.startDate?.split('T')[1]+'\n📍 '+dup.destinations+'\n👥 '+dup.passengers+'\n\nContinue anyway?'))return;
                           setSelEmps([...selEmps,emp]);
                         }else{
@@ -1620,6 +1534,28 @@ const App=()=>{
               </div>
               <div>
                 <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'.5px'}}>{t[lang].route}</label>
+                {/* Departure Point */}
+                <div style={{marginBottom:7,padding:'10px 12px',background:'rgba(59,130,246,0.08)',borderRadius:8,border:'1px solid rgba(59,130,246,0.2)'}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'#60A5FA',marginBottom:6,textTransform:'uppercase',letterSpacing:'.5px'}}>📍 {t[lang].departure}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    {DEPARTURES.map(p=>(
+                      <button key={p.id} type="button" onClick={()=>{const nd=[...destinations];nd[0]=p.name;setDestinations(nd);}} style={{padding:'4px 10px',borderRadius:6,border:'1px solid',fontSize:11,fontWeight:500,borderColor:destinations[0]===p.name?'#60A5FA':'rgba(59,130,246,0.3)',background:destinations[0]===p.name?'rgba(59,130,246,0.25)':'transparent',color:destinations[0]===p.name?'white':'#60A5FA'}}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Quick Destinations */}
+                <div style={{marginBottom:7,padding:'10px 12px',background:'var(--lime-bg)',borderRadius:8,border:'1px solid rgba(141,198,63,0.2)'}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'var(--lime)',marginBottom:6,textTransform:'uppercase',letterSpacing:'.5px'}}>🏭 {t[lang].quickSelect}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    {DESTS.map(p=>(
+                      <button key={p.id} type="button" onClick={()=>{if(!destinations.includes(p.name))setDestinations([...destinations.filter(d=>d.trim()),p.name]);}} style={{padding:'4px 10px',borderRadius:6,border:'1px solid rgba(141,198,63,0.3)',fontSize:11,fontWeight:500,background:'transparent',color:'var(--lime)'}}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {destinations.map((d,i)=>(
                   <div key={i} style={{display:'flex',gap:6,marginBottom:5}}>
                     <input type="text" value={d} onChange={e=>{const nd=[...destinations];nd[i]=e.target.value;setDestinations(nd);}} style={{flex:1,padding:'9px 12px'}} placeholder={i===0?t[lang].departure:'Stop '+i}/>
@@ -1628,6 +1564,16 @@ const App=()=>{
                 ))}
                 <button type="button" onClick={()=>setDestinations([...destinations,''])} style={{width:'100%',padding:'7px',border:'1px dashed var(--border2)',borderRadius:7,background:'transparent',color:'var(--text3)',fontSize:12}}>{t[lang].addStop}</button>
               </div>
+                {/* Return Location */}
+                <div style={{marginTop:'0.75rem'}}>
+                  <label style={{display:'block',fontSize:11,fontWeight:600,color:'var(--text3)',marginBottom:5,textTransform:'uppercase',letterSpacing:'..5px'}}>Return Location *</label>
+                  <div style={{display:'flex',gap:4,marginBottom:5,flexWrap:'wrap'}}>
+                    {['IDMC Toyota Building','Vinfast Building'].map(loc=>(
+                      <button key={loc} type="button" onClick={()=>setReturnLocation(loc)} style={{padding:'5px 10px',fontSize:11,borderRadius:6,background:returnLocation===loc?'var(--lime-bg)':'var(--black3)',border:'1px solid',borderColor:returnLocation===loc?'var(--lime)':'var(--border2)',color:returnLocation===loc?'var(--lime)':'var(--text2)',fontWeight:600}}>{loc}</button>
+                    ))}
+                  </div>
+                  <input type="text" value={returnLocation} onChange={e=>setReturnLocation(e.target.value)} style={{width:'100%',padding:'9px 12px'}} placeholder="Or type custom location" required/>
+                </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                 <DateTimePicker name="startDate" label={t[lang].startTime+' *'} defaultDate={parseVNDate(editingBooking.startDate).date} defaultTime={parseVNDate(editingBooking.startDate).time||'08:00'}/>
                 <DateTimePicker name="endDate" label={t[lang].endTime+' *'} defaultDate={parseVNDate(editingBooking.endDate).date} defaultTime={parseVNDate(editingBooking.endDate).time||'18:00'}/>
