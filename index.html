@@ -61,6 +61,104 @@ button{font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
 .toggle-off{background:var(--rejected-bg);border-color:rgba(239,68,68,0.3);color:var(--rejected)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:50;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem}
 .modal-box{background:var(--black2);border:1px solid var(--border);border-radius:16px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 25px 80px rgba(0,0,0,0.7)}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  /* 헤더 간소화 */
+  .header-buttons {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  
+  .header-buttons button {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+  
+  /* Calendar 탭 레이아웃 */
+  .calendar-container {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .calendar-left, .calendar-right {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* 드라이버 카드 1열로 */
+  .driver-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Booking Status 카드 */
+  .booking-card {
+    padding: 0.75rem !important;
+    font-size: 12px !important;
+  }
+  
+  /* 캘린더 날짜 크기 */
+  .calendar-day {
+    min-height: 60px !important;
+    font-size: 14px !important;
+  }
+  
+  /* 모달 크기 조정 */
+  .modal-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+  
+  /* 테이블 가로 스크롤 */
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Management 탭 버튼 */
+  .admin-subtabs {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  
+  .admin-subtabs button {
+    flex: 1 1 45% !important;
+    min-width: 120px !important;
+  }
+  
+  /* Quick Stats 카드 */
+  .quick-stats {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* 검색 input */
+  input[type="text"], input[type="datetime-local"], select {
+    font-size: 16px !important; /* iOS 자동 줌 방지 */
+  }
+  
+  /* 버튼 터치 영역 */
+  button, a {
+    min-height: 44px !important; /* iOS 터치 가이드라인 */
+  }
+}
+
+/* 태블릿 (768px ~ 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .calendar-container {
+    gap: 1rem !important;
+  }
+  
+  .calendar-left {
+    flex: 1.2 !important;
+  }
+  
+  .calendar-right {
+    flex: 0.8 !important;
+  }
+}
+
 </style>
 <style>
 body.light-mode {
@@ -201,6 +299,14 @@ function DateTimePicker({name, label, defaultDate, defaultTime}){
   );
 }
 
+// 내가 승객으로 포함되어 있는지 체크
+function isMyBooking(booking,currentUserEmpNo){
+  if(booking.createdBy===currentUserEmpNo)return true;
+  if(!booking.passengers)return false;
+  const empNoStr=String(currentUserEmpNo||'').toLowerCase();
+  return booking.passengers.toLowerCase().includes(empNoStr);
+}
+
 // ============ Auto-Arrange 알고리즘 ============
 function getPaxCount(b){
   if(!b.passengers)return 1;
@@ -228,10 +334,12 @@ function assignBestVehicle(pax,vehicles){
   if(!vehicles||vehicles.length===0)return null;
   const company=vehicles.filter(v=>!v.isRental);
   const companyFit=company.filter(v=>v.seats>=pax).sort((a,b)=>a.seats-b.seats);
-  if(companyFit.length>0)return companyFit[0];
+  if(companyFit.length>0)return {vehicle:companyFit[0],overCapacity:false};
   const anyFit=vehicles.filter(v=>v.seats>=pax).sort((a,b)=>a.seats-b.seats);
-  if(anyFit.length>0)return anyFit[0];
-  return [...vehicles].sort((a,b)=>b.seats-a.seats)[0];
+  if(anyFit.length>0)return {vehicle:anyFit[0],overCapacity:false};
+  // 정원 초과 - 가장 큰 차량 리턴하되 경고 플래그
+  const largest=[...vehicles].sort((a,b)=>b.seats-a.seats)[0];
+  return {vehicle:largest,overCapacity:true};
 }
 
 function splitGroupEvenly(group){
@@ -299,9 +407,14 @@ function autoArrange(bookings,vehicles){
   return finalGroups.map(group=>{
     const totalPax=group.reduce((s,b)=>s+getPaxCount(b),0);
     const pool=availVehicles.filter(v=>!usedVehicleIds.has(v.id));
-    const assigned=assignBestVehicle(totalPax,pool.length>0?pool:availVehicles);
-    if(assigned)usedVehicleIds.add(assigned.id);
-    return {group,totalPax,assignedVehicle:assigned};
+    const result=assignBestVehicle(totalPax,pool.length>0?pool:availVehicles);
+    if(result&&result.vehicle)usedVehicleIds.add(result.vehicle.id);
+    return {
+      group,
+      totalPax,
+      assignedVehicle:result?result.vehicle:null,
+      overCapacity:result?result.overCapacity:false
+    };
   });
 }
 
@@ -642,6 +755,27 @@ const App=()=>{
     return name+' ('+emp.empNo+')';
   };
 
+  // 중복 예약 체크
+  const checkDuplicateBooking=(empName)=>{
+    return bookings.find(b=>
+      b.status!=='rejected'&&
+      b.passengers&&
+      b.passengers.toLowerCase().includes(empName.toLowerCase())
+    );
+  };
+
+  // 내 예약인지 체크 (createdBy or passengers)
+  const isMyBooking=(booking)=>{
+    if(!booking||!currentUser)return false;
+    if(booking.createdBy===currentUser.empNo)return true;
+    if(!booking.passengers)return false;
+    // 이름 또는 사번으로 체크
+    const paxLower=booking.passengers.toLowerCase();
+    const myName=currentUser.nameEn?.toLowerCase()||'';
+    const myEmpNo=String(currentUser.empNo||'').toLowerCase();
+    return paxLower.includes(myName)||paxLower.includes(myEmpNo);
+  };
+
   // Merge for display only (calendar/booking status)
   const getDisplayGroups=(bList)=>{
     const active=bList.filter(b=>b.status!=='rejected');
@@ -884,7 +1018,7 @@ const App=()=>{
                   const d=new Date(b.startDate);
                   return d.getMonth()===thisMonth&&d.getFullYear()===thisYear&&b.status!=='rejected';
                 });
-                const myBookings=bookings.filter(b=>b.createdBy===currentUser.empNo&&b.status!=='rejected');
+                const myBookings=bookings.filter(b=>isMyBooking(b,currentUser.empNo)&&b.status!=='rejected');
                 return(
                   <div className="card" style={{padding:'0.75rem',textAlign:'center',border:'1px solid rgba(141,198,63,0.3)',background:'var(--lime-bg)'}}>
                     <div style={{fontSize:22,fontWeight:800,color:'var(--lime)'}}>{myBookings.length}</div>
@@ -909,8 +1043,8 @@ const App=()=>{
                 return filtered.length===0?(
                   <div className="card" style={{padding:'2rem',textAlign:'center',color:'var(--text3)',fontSize:13}}>{selectedDate?'No bookings on this date':t[lang].noBookings}</div>
                 ):getDisplayGroups(filtered).sort((a,b)=>{
-                  const aIsMine=a[0].createdBy===currentUser.empNo;
-                  const bIsMine=b[0].createdBy===currentUser.empNo;
+                  const aIsMine=isMyBooking(a[0],currentUser.empNo);
+                  const bIsMine=isMyBooking(b[0],currentUser.empNo);
                   if(aIsMine&&!bIsMine)return -1;
                   if(!aIsMine&&bIsMine)return 1;
                   return 0;
@@ -920,7 +1054,7 @@ const App=()=>{
                 const allPax=group.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean);
                 const gs=group.every(b=>b.status==='approved')?'approved':group.some(b=>b.status==='pending')?'pending':'approved';
                 return(
-                  <div key={gi} className="card fade-in" style={{padding:'1rem',border:rep.createdBy===currentUser.empNo?'2px solid var(--lime)':isM?'1px solid rgba(141,198,63,0.25)':'1px solid var(--border)',background:rep.createdBy===currentUser.empNo?'var(--lime-bg)':'var(--black2)'}}>
+                  <div key={gi} className="card fade-in" style={{padding:'1rem',border:isMyBooking(group[0])?'2px solid var(--lime)':'1px solid var(--border)',background:isMyBooking(group[0])?'var(--lime-bg)':'var(--black2)',border:isMyBooking(rep,currentUser.empNo)?'2px solid var(--lime)':isM?'1px solid rgba(141,198,63,0.25)':'1px solid var(--border)',background:isMyBooking(rep,currentUser.empNo)?'var(--lime-bg)':'var(--black2)'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,cursor:'pointer'}}
                       onClick={()=>isM?setSelectedGroup(group):setSelectedBooking(rep)}>
                       <div style={{display:'flex',alignItems:'center',gap:6}}>
@@ -928,7 +1062,7 @@ const App=()=>{
                           {isM?'🔀':'🚗'} {rep.vehicle||'Pending Assignment'}
                           {isM&&<span style={{marginLeft:4,fontSize:11,color:'var(--text3)',fontWeight:400}}>{t[lang].merged} ×{group.length}</span>}
                         </span>
-                        {rep.createdBy===currentUser.empNo&&<span style={{fontSize:9,padding:'2px 6px',background:'var(--lime)',color:'var(--black)',borderRadius:4,fontWeight:700}}>MY</span>}
+                        {isMyBooking(rep,currentUser.empNo)&&<span style={{fontSize:9,padding:'2px 6px',background:'var(--lime)',color:'var(--black)',borderRadius:4,fontWeight:700}}>MY</span>}
                       </div>
                       <span className={'tag tag-'+gs} style={{fontSize:10}}>
                         {gs==='pending'?'⏳ '+t[lang].pending:gs==='approved'?'✅ '+t[lang].approved:''}
@@ -939,7 +1073,7 @@ const App=()=>{
                     <p style={{fontSize:11,color:'var(--text2)',marginBottom:2}}>👥 {isM?allPax.map(formatPassenger).join(', '):rep.passengers?.split(', ').map(formatPassenger).join(', ')} ({isM?allPax.length:rep.passengers?.split(',').length||1} {t[lang].pax})</p>
                     <p style={{fontSize:11,color:'var(--text3)',marginBottom:6}}>📍 {rep.destinations}</p>
                     {/* 본인 예약 수정/취소 버튼 */}
-                    {!isM&&rep.status==='pending'&&rep.createdBy===currentUser.empNo&&(
+                    {!isM&&rep.status==='pending'&&isMyBooking(rep,currentUser.empNo)&&(
                       <div style={{display:'flex',gap:6,marginTop:4}}>
                         <button onClick={e=>{
                           e.stopPropagation();
@@ -1216,7 +1350,11 @@ const App=()=>{
                           <div style={{flex:1}}>
                             <div style={{fontWeight:700,color:'var(--text)',fontSize:14}}>{gr.assignedVehicle?.name||'No vehicle available'}</div>
                             <div style={{fontSize:11,color:'var(--lime)',fontFamily:'monospace'}}>{gr.assignedVehicle?.plate}</div>
-                            <div style={{fontSize:11,color:'var(--text3)'}}>{gr.assignedVehicle?.driver} · {gr.assignedVehicle?.seats} seats · {allPax.length} needed{gr.assignedVehicle?.isRental?' · 🔖 Rental':' · 🏢 Company'}</div>
+                            <div style={{fontSize:11,color:gr.overCapacity?'#ef4444':'var(--text3)'}}>
+                              {gr.assignedVehicle?.driver} · {gr.assignedVehicle?.seats} seats · {allPax.length} needed
+                              {gr.overCapacity&&<span style={{color:'#ef4444',fontWeight:700}}> ⚠️ OVER CAPACITY!</span>}
+                              {gr.assignedVehicle?.isRental?' · 🔖 Rental':' · 🏢 Company'}
+                            </div>
                           </div>
                           {/* 차량 교체 드롭다운 */}
                           <select onChange={e=>{
@@ -1354,7 +1492,15 @@ const App=()=>{
                 <div style={{maxHeight:160,overflow:'auto',border:'1px solid var(--border2)',borderRadius:8}}>
                   {filteredEmps.map(emp=>(
                     <label key={emp.empNo} style={{display:'flex',alignItems:'center',padding:'9px 12px',borderBottom:'1px solid var(--border)',cursor:'pointer',background:selEmps.some(e=>e.empNo===emp.empNo)?'var(--lime-bg)':'transparent'}}>
-                      <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{if(e.target.checked)setSelEmps([...selEmps,emp]);else setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo));}} style={{marginRight:9,accentColor:'var(--lime)',width:14,height:14}}/>
+                      <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{
+                        if(e.target.checked){
+                          const dup=checkDuplicateBooking(emp.nameEn);
+                          if(dup&&!confirm('⚠️ '+emp.nameEn+' is already in another booking:\n\n📅 '+dup.startDate?.split('T')[0]+' '+dup.startDate?.split('T')[1]+'\n📍 '+dup.destinations+'\n👥 '+dup.passengers+'\n\nContinue anyway?'))return;
+                          setSelEmps([...selEmps,emp]);
+                        }else{
+                          setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo));
+                        }
+                      }} style={{marginRight:9,accentColor:'var(--lime)',width:14,height:14}}/>
                       <div>
                         <div style={{fontWeight:500,fontSize:13,color:'var(--text)'}}>{emp.nameEn}</div>
                         <div style={{fontSize:12,color:'var(--text2)',fontWeight:500}}>{emp.empNo}{emp.position?" · "+emp.position:""}{emp.department?" · "+emp.department:""}</div>
@@ -1448,7 +1594,15 @@ const App=()=>{
                 <div style={{maxHeight:130,overflow:'auto',border:'1px solid var(--border2)',borderRadius:8}}>
                   {filteredEmps.map(emp=>(
                     <label key={emp.empNo} style={{display:'flex',alignItems:'center',padding:'8px 12px',borderBottom:'1px solid var(--border)',cursor:'pointer',background:selEmps.some(e=>e.empNo===emp.empNo)?'var(--lime-bg)':'transparent'}}>
-                      <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{if(e.target.checked)setSelEmps([...selEmps,emp]);else setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo));}} style={{marginRight:9,accentColor:'var(--lime)',width:14,height:14}}/>
+                      <input type="checkbox" checked={selEmps.some(e=>e.empNo===emp.empNo)} onChange={e=>{
+                        if(e.target.checked){
+                          const dup=checkDuplicateBooking(emp.nameEn);
+                          if(dup&&!confirm('⚠️ '+emp.nameEn+' is already in another booking:\n\n📅 '+dup.startDate?.split('T')[0]+' '+dup.startDate?.split('T')[1]+'\n📍 '+dup.destinations+'\n👥 '+dup.passengers+'\n\nContinue anyway?'))return;
+                          setSelEmps([...selEmps,emp]);
+                        }else{
+                          setSelEmps(selEmps.filter(e=>e.empNo!==emp.empNo));
+                        }
+                      }} style={{marginRight:9,accentColor:'var(--lime)',width:14,height:14}}/>
                       <div>
                         <div style={{fontWeight:500,fontSize:13,color:'var(--text)'}}>{emp.nameEn}</div>
                         <div style={{fontSize:12,color:'var(--text2)',fontWeight:500}}>{emp.empNo}{emp.position?' · '+emp.position:''}{emp.department?' · '+emp.department:''}</div>
