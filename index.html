@@ -364,7 +364,7 @@ const App=()=>{
   const [editingBooking,setEditingBooking]=useState(null);
   const [refreshing,setRefreshing]=useState(false);
   const [globalLoading,setGlobalLoading]=useState(false); // approve/reject/delete 등 빠른 작업용
-  const [adminSubTab,setAdminSubTab]=useState('dashboard'); // dashboard | bookings | arrange | vehicles
+  const [adminSubTab,setAdminSubTab]=useState('dashboard'); // dashboard | bookings | vehicles
 
   useEffect(()=>{
     const saved=localStorage.getItem('yic_user');
@@ -433,6 +433,16 @@ const App=()=>{
     const fd=new FormData(e.target);
     const startDate=fd.get('startDate');
     const destStr=destinations.filter(d=>d.trim()).join(' → ');
+    
+    // Route 필수 체크
+    if(!destinations[0]||!destinations[0].trim()){
+      alert('⚠️ Please select a Departure Point!');
+      return;
+    }
+    if(destinations.filter(d=>d.trim()).length<2){
+      alert('⚠️ Please select at least one Destination!');
+      return;
+    }
 
     // 중복 예약 체크: 같은 날짜에 선택된 직원이 이미 예약했는지
     const datePrefix=startDate?startDate.substring(0,10):'';
@@ -495,6 +505,17 @@ const App=()=>{
 
   const handleUpdateBooking=async(e)=>{
     e.preventDefault();
+    
+    // Route 필수 체크
+    if(!destinations[0]||!destinations[0].trim()){
+      alert('⚠️ Please select a Departure Point!');
+      return;
+    }
+    if(destinations.filter(d=>d.trim()).length<2){
+      alert('⚠️ Please select at least one Destination!');
+      return;
+    }
+    
     setGlobalLoading(true);
     const fd=new FormData(e.target);
     await api('updateBooking',{
@@ -518,7 +539,7 @@ const App=()=>{
       const result=autoArrange(bookings,vehicles);
       setArrangeResult(result);
       setArrangeLoading(false);
-      setAdminSubTab('arrange');
+      // 탭 이동 제거 - Bookings 탭에서 결과 표시
     },500);
   };
 
@@ -1064,7 +1085,7 @@ const App=()=>{
         <div className="main-wrap">
           {/* Admin 탭 */}
           <div style={{display:'flex',gap:6,marginBottom:'1.25rem',flexWrap:'wrap'}}>
-            {[['dashboard','📊 Dashboard'],['bookings','📋 Bookings'],['arrange','⚡ Auto-Arrange'],['vehicles','🚗 Vehicles']].map(([tab,label])=>(
+            {[['dashboard','📊 Dashboard'],['bookings','📋 Bookings'],['vehicles','🚗 Vehicles']].map(([tab,label])=>(
               <button key={tab} onClick={()=>setAdminSubTab(tab)} style={{padding:'8px 18px',borderRadius:8,fontWeight:600,fontSize:13,border:'1px solid',borderColor:adminSubTab===tab?'var(--lime)':'var(--border2)',background:adminSubTab===tab?'var(--lime-bg2)':'transparent',color:adminSubTab===tab?'var(--lime)':'var(--text2)'}}>
                 {label}
               </button>
@@ -1151,6 +1172,28 @@ const App=()=>{
                     ))}
                   </div>
                 </div>
+                {/* 전체 Booking Status */}
+                <div style={{marginTop:'1.5rem'}}>
+                  <div style={{fontWeight:700,color:'var(--text)',marginBottom:'1rem',fontSize:15}}>📋 All Bookings</div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'0.75rem'}}>
+                    {bookings.filter(b=>b.status!=='rejected').sort((a,b)=>new Date(b.startDate||0).getTime()-new Date(a.startDate||0).getTime()).map(b=>(
+                      <div key={b.id} className="card" onClick={()=>setSelectedBooking(b)} style={{padding:'0.875rem',border:'1px solid var(--border)',cursor:'pointer',transition:'all .15s'}}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor='var(--lime)'}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                          <span style={{fontWeight:600,fontSize:12,color:'var(--lime)'}}>🚗 {b.vehicle||'Pending'}</span>
+                          <span className={'tag tag-'+b.status} style={{fontSize:9,padding:'2px 7px'}}>
+                            {b.status==='approved'?'✅':'⏳'}
+                          </span>
+                        </div>
+                        <p style={{fontSize:11,color:'var(--text)',marginBottom:4,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.purpose}</p>
+                        <p style={{fontSize:10,color:'var(--text3)',marginBottom:3}}>📅 {fmtDate(b.startDate)}</p>
+                        <p style={{fontSize:10,color:'var(--text3)',marginBottom:3}}>👥 {b.passengers?.split(',').length||0} pax</p>
+                        <p style={{fontSize:10,color:'var(--text3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>📍 {b.destinations}{b.returnLocation?' → '+b.returnLocation:''}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             );
           })()}
@@ -1199,6 +1242,59 @@ const App=()=>{
                   </button>
                 </div>
               </div>
+              {/* Auto-Arrange 결과 */}
+              {arrangeResult&&arrangeResult.length>0&&(
+                <div style={{marginBottom:'1.25rem',padding:'1.25rem',background:'var(--lime-bg)',border:'1px solid rgba(141,198,63,0.3)',borderRadius:12}} className="fade-in">
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+                    <div>
+                      <h3 style={{fontWeight:800,fontSize:16,color:'var(--lime)'}}>⚡ Auto-Arrange Result</h3>
+                      <p style={{fontSize:12,color:'var(--text3)',marginTop:4}}>Review & approve optimized vehicle assignments</p>
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                      <button onClick={handleApproveAll} className="btn-lime" style={{padding:'7px 16px',borderRadius:8,fontSize:13}}>✅ Approve All</button>
+                      <button onClick={()=>setArrangeResult(null)} style={{padding:'7px 16px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:8,border:'1px solid rgba(239,68,68,0.3)',fontWeight:600,fontSize:12}}>✕ Cancel</button>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'0.875rem'}}>
+                    {arrangeResult.map((gr,gi)=>{
+                      const allPax=gr.group.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean);
+                      return(
+                        <div key={gi} className="card" style={{padding:'1rem',background:'var(--black2)',border:'1px solid var(--border2)'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'0.75rem'}}>
+                            <div>
+                              <div style={{fontWeight:700,fontSize:14,color:'var(--text)',marginBottom:4}}>
+                                Group {gi+1} · {allPax.length} pax
+                                {gr.group.length>1&&<span style={{marginLeft:8,fontSize:11,color:'var(--text3)',fontWeight:400}}>({gr.group.length} merged)</span>}
+                              </div>
+                              <div style={{fontSize:12,color:'var(--text3)'}}>📍 {gr.group[0].destinations}{gr.group[0].returnLocation?' → '+gr.group[0].returnLocation:''}</div>
+                              <div style={{fontSize:12,color:'var(--text3)'}}>📅 {fmtDate(gr.group[0].startDate)}</div>
+                            </div>
+                            <button onClick={()=>handleApproveGroup(gr)} style={{padding:'6px 14px',background:'var(--approved-bg)',color:'var(--approved)',border:'1px solid rgba(141,198,63,0.3)',borderRadius:7,fontWeight:600,fontSize:12}}>✅ Approve</button>
+                          </div>
+                          <div style={{display:'flex',alignItems:'center',gap:10,padding:'0.75rem',background:'var(--black3)',borderRadius:8,border:'1px solid var(--border2)'}}>
+                            <div style={{width:36,height:36,borderRadius:'50%',overflow:'hidden',background:'var(--black4)',border:'2px solid rgba(141,198,63,0.3)',flexShrink:0}}>
+                              {gr.assignedVehicle&&DRIVER_IMAGES[gr.assignedVehicle.driver]?<img src={DRIVER_IMAGES[gr.assignedVehicle.driver]} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span style={{fontSize:'1rem',display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>🚗</span>}
+                            </div>
+                            <div style={{flex:1}}>
+                              <div style={{fontWeight:600,fontSize:13,color:'var(--text)'}}>{gr.assignedVehicle?.name||'No vehicle'}</div>
+                              <div style={{fontSize:11,color:'var(--text3)'}}>{gr.assignedVehicle?.driver} · {gr.assignedVehicle?.seats} seats</div>
+                            </div>
+                            <select onChange={e=>{
+                              const sel=vehicles.find(v=>v.id===e.target.value);
+                              if(sel){setArrangeResult(prev=>prev.map((r,i)=>i===gi?{...r,assignedVehicle:sel}:r));}
+                            }} value={gr.assignedVehicle?.id||''} style={{padding:'5px 8px',borderRadius:6,fontSize:11,minWidth:120}}>
+                              <option value="">Reassign</option>
+                              {vehicles.filter(v=>v.isActive&&v.driverActive).map(v=>(
+                                <option key={v.id} value={v.id}>{v.name} ({v.seats}🪑)</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
                 {filtered.map(b=>(
                   <div key={b.id} className="card fade-in" style={{padding:'1.25rem',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem'}}>
@@ -1251,104 +1347,6 @@ const App=()=>{
           )}
 
           {/* --- Auto-Arrange 탭 --- */}
-          {adminSubTab==='arrange'&&(
-            <>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
-                <div>
-                  <h3 style={{fontWeight:700,color:'var(--text)',marginBottom:4}}>⚡ {t[lang].arrangeResult}</h3>
-                  <p style={{fontSize:12,color:'var(--text3)'}}>{t[lang].autoArrangeDesc}</p>
-                </div>
-                <div style={{display:'flex',gap:8}}>
-                  <button onClick={handleAutoArrange} style={{padding:'7px 16px',background:'var(--black3)',color:'var(--text2)',borderRadius:8,border:'1px solid var(--border2)',fontWeight:600,fontSize:12}}>
-                    🔄 Re-run
-                  </button>
-                  {arrangeResult&&(
-                    <button onClick={()=>setArrangeResult(null)} style={{padding:'7px 16px',background:'var(--rejected-bg)',color:'var(--rejected)',borderRadius:8,border:'1px solid rgba(239,68,68,0.3)',fontWeight:600,fontSize:12}}>
-                      ✕ Cancel
-                    </button>
-                  )}
-                  {arrangeResult&&arrangeResult.length>0&&(
-                    <button onClick={handleApproveAll} className="btn-lime" style={{padding:'7px 18px',borderRadius:8,fontSize:13}}>
-                      ✅ {t[lang].approveAll}
-                    </button>
-                  )}
-                </div>
-              </div>
-              {arrangeLoading?(
-                <div style={{display:'flex',justifyContent:'center',padding:'3rem'}}><div className="spinner"></div></div>
-              ):!arrangeResult?(
-                <div className="card" style={{padding:'3rem',textAlign:'center',color:'var(--text3)'}}>{t[lang].noArrangeResult}</div>
-              ):(
-                <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
-                  {arrangeResult.map((gr,gi)=>{
-                    const allPax=gr.group.flatMap(b=>b.passengers?b.passengers.split(', '):[]).filter(Boolean);
-                    const returnTimeDiff=gr.group.some(b=>{
-                      const t0=new Date(gr.group[0].endDate).getTime();
-                      const t1=new Date(b.endDate).getTime();
-                      return Math.abs(t0-t1)>0;
-                    });
-                    return(
-                      <div key={gi} className="card" style={{padding:'1.25rem',border:'1px solid rgba(141,198,63,0.2)'}}>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'1rem'}}>
-                          <div>
-                            <div style={{fontWeight:800,fontSize:15,color:'var(--lime)',marginBottom:4}}>
-                              Group {gi+1} · {allPax.length} {t[lang].pax}
-                              {gr.group.length>1&&<span style={{marginLeft:8,fontSize:12,color:'var(--text3)',fontWeight:400}}>({gr.group.length} bookings merged)</span>}
-                            </div>
-                            {gr.assignedVehicle&&allPax.length>gr.assignedVehicle.seats&&(
-                              <div style={{fontSize:11,color:'var(--rejected)',marginBottom:4}}>🚨 Seats exceeded! {allPax.length} passengers / {gr.assignedVehicle.seats} seats — please reassign a larger vehicle</div>
-                            )}
-                            <div style={{fontSize:12,color:'var(--text3)'}}>📍 {gr.group[0].destinations}{gr.group[0].returnLocation?' → '+gr.group[0].returnLocation:''}</div>
-                            <div style={{fontSize:12,color:'var(--text3)'}}>📅 {fmtDate(gr.group[0].startDate)}</div>
-                            {returnTimeDiff&&<div style={{fontSize:11,color:'var(--pending)',marginTop:4}}>⚠️ Return times differ — please confirm with passengers</div>}
-                          </div>
-                          <button onClick={()=>handleApproveGroup(gr)} style={{padding:'8px 16px',background:'var(--approved-bg)',color:'var(--approved)',border:'1px solid rgba(141,198,63,0.3)',borderRadius:8,fontWeight:700,fontSize:12}}>
-                            ✅ Approve
-                          </button>
-                        </div>
-                        {/* 배정 차량 */}
-                        {gr.assignedVehicle&&allPax.length>gr.assignedVehicle.seats&&(
-                          <div style={{padding:'8px 12px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,fontSize:12,color:'var(--rejected)',marginBottom:8,fontWeight:600}}>
-                            ⚠️ Seat shortage: {allPax.length} passengers / {gr.assignedVehicle.seats} seats — please reassign a larger vehicle
-                          </div>
-                        )}
-                        <div style={{display:'flex',alignItems:'center',gap:12,padding:'0.875rem',background:'var(--black3)',borderRadius:10,border:gr.assignedVehicle&&allPax.length>gr.assignedVehicle.seats?'1px solid rgba(239,68,68,0.4)':'1px solid var(--border2)',marginBottom:'0.75rem'}}>
-                          <div style={{width:40,height:40,borderRadius:'50%',overflow:'hidden',background:'var(--black4)',border:'2px solid rgba(141,198,63,0.3)',flexShrink:0}}>
-                            {gr.assignedVehicle&&DRIVER_IMAGES[gr.assignedVehicle.driver]?<img src={DRIVER_IMAGES[gr.assignedVehicle.driver]} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span style={{fontSize:'1.2rem',display:'flex',alignItems:'center',justifyContent:'center',height:'100%'}}>🚗</span>}
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:700,color:'var(--text)',fontSize:14}}>{gr.assignedVehicle?.name||'No vehicle available'}</div>
-                            <div style={{fontSize:11,color:'var(--lime)',fontFamily:'monospace'}}>{gr.assignedVehicle?.plate}</div>
-                            <div style={{fontSize:11,color:gr.overCapacity?'#ef4444':'var(--text3)'}}>
-                              {gr.assignedVehicle?.driver} · {gr.assignedVehicle?.seats} seats · {allPax.length} needed
-                              {gr.overCapacity&&<span style={{color:'#ef4444',fontWeight:700}}> ⚠️ OVER CAPACITY!</span>}
-                              {gr.assignedVehicle?.isRental?' · 🔖 Rental':' · 🏢 Company'}
-                            </div>
-                          </div>
-                          {/* 차량 교체 드롭다운 */}
-                          <select onChange={e=>{
-                            const sel=vehicles.find(v=>v.id===e.target.value);
-                            if(sel){setArrangeResult(prev=>prev.map((r,i)=>i===gi?{...r,assignedVehicle:sel}:r));}
-                          }} value={gr.assignedVehicle?.id||''} style={{padding:'6px 10px',borderRadius:7,fontSize:12,minWidth:130}}>
-                            <option value="">-- {t[lang].reassign} --</option>
-                            {vehicles.filter(v=>v.isActive&&v.driverActive).map(v=>(
-                              <option key={v.id} value={v.id}>{v.name} ({v.seats}🪑) {v.isRental?'[R]':''}</option>
-                            ))}
-                          </select>
-                        </div>
-                        {/* 탑승자 */}
-                        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                          {allPax.map((p,pi)=>(
-                            <span key={pi} style={{padding:'3px 10px',background:'var(--lime-bg2)',borderRadius:20,fontSize:12,fontWeight:600,color:'var(--lime)',border:'1px solid rgba(141,198,63,0.2)'}}>{formatPassenger(p)}</span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
 
           {/* --- Vehicles 탭 --- */}
           {adminSubTab==='vehicles'&&(
@@ -1707,6 +1705,7 @@ const App=()=>{
             <div style={{marginBottom:'1rem',padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
               <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Route</div>
               <div style={{fontSize:14,fontWeight:600,color:'var(--text)'}}>{selectedBooking.destinations}{selectedBooking.returnLocation?' → '+selectedBooking.returnLocation:''}</div>
+              <div style={{fontSize:10,color:'#ff0000',marginTop:4}}>DEBUG: returnLocation = "{selectedBooking.returnLocation || 'EMPTY'}"</div>
             </div>
             <div style={{marginBottom:'1.5rem',padding:'1rem',background:'var(--black3)',borderRadius:12,border:'1px solid var(--border2)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
